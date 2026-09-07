@@ -1,6 +1,9 @@
 name: LEOGO Product Variations Update
 on:
-  workflow_dispatch:
+  push:
+    paths:
+      - 'seller_products.html'
+      - '.github/workflows/leogo-variations-fix.yml'
 permissions:
   contents: write
 jobs:
@@ -14,6 +17,9 @@ jobs:
           from pathlib import Path
           p=Path('seller_products.html')
           s=p.read_text()
+          if 'id="useVariations"' in s:
+              print('Variations already applied')
+              raise SystemExit(0)
           s=s.replace('.progress i{display:block;height:100%;width:0;background:var(--o)}', '.progress i{display:block;height:100%;width:0;background:var(--o)}.variationBox{border:1px solid var(--line);border-radius:12px;padding:14px;margin:6px 0 12px}.variationHead{display:flex;justify-content:space-between;align-items:center;gap:10px}.variationRow{display:grid;grid-template-columns:1.5fr 1fr 1fr auto;gap:8px;align-items:end;margin-top:10px}.variationRow input{margin:0}.removeVar{background:#fee2e2;color:#991b1b;padding:10px 12px}@media(max-width:650px){.variationRow{grid-template-columns:1fr 1fr}.removeVar{grid-column:2}}')
           old='''<div class="grid"><div><label>Price (KSh) *</label><input id="pPrice" type="number" min="0" step="0.01" required placeholder="0.00"></div><div><label>Stock Quantity *</label><input id="pStock" type="number" min="0" step="1" required placeholder="0"></div></div><label>Product Image</label>'''
           new='''<div class="grid"><div><label id="priceLabel">Price (KSh) *</label><input id="pPrice" type="number" min="0" step="0.01" required placeholder="0.00"></div><div><label id="stockLabel">Stock Quantity *</label><input id="pStock" type="number" min="0" step="1" required placeholder="0"></div></div><div class="variationBox"><div class="variationHead"><div><b>Product Variations</b><div class="small muted">Optional. Example: Coca-Cola, Fanta, Sprite, Stoney.</div></div><label style="font-size:13px"><input id="useVariations" type="checkbox" style="width:auto;margin:0 5px 0 0" onchange="toggleVariations()"> Use variations</label></div><div id="variationArea" class="hidden"><div id="variationRows"></div><button type="button" class="light" style="margin-top:10px" onclick="addVariation()">＋ ADD VARIATION</button><div class="small muted" style="margin-top:8px">Each variation can have its own price and stock. Customers will choose the variation when ordering.</div></div></div><label>Product Image</label>'''
