@@ -1,0 +1,55 @@
+name: LEOGO Variation Images
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add variation image upload controls
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('seller_products.html')
+          s=p.read_text()
+          old_css='.variationRow{display:grid;grid-template-columns:1.5fr 1fr 1fr auto;gap:8px;align-items:end;margin-top:10px}.variationRow input{margin:0}.removeVar{background:#fee2e2;color:#991b1b;padding:10px 12px}@media(max-width:650px){.variationRow{grid-template-columns:1fr 1fr}.removeVar{grid-column:2}}'
+          new_css='.variationRow{display:grid;grid-template-columns:1.3fr .8fr .8fr 1.2fr auto;gap:8px;align-items:end;margin-top:10px}.variationRow input{margin:0}.variationImageBox{border:1px dashed #d7dce4;border-radius:10px;padding:7px}.variationImageBox input{font-size:12px;width:100%;padding:4px;border:0}.variationPreview{max-width:70px;max-height:55px;border-radius:7px;display:block;margin-top:5px;object-fit:cover}.removeVar{background:#fee2e2;color:#991b1b;padding:10px 12px}@media(max-width:650px){.variationRow{grid-template-columns:1fr 1fr}.variationImageBox,.removeVar{grid-column:span 2}}'
+          if old_css not in s: raise SystemExit('variation CSS marker not found')
+          s=s.replace(old_css,new_css,1)
+          old_func="function addVariation(v={name:'',price:'',stock:'',available:true}){const row=document.createElement('div');row.className='variationRow';row.innerHTML='<div><label>Variation</label><input class=\"vName\" required maxlength=\"100\" placeholder=\"e.g. Coca-Cola\"></div><div><label>Price (KSh)</label><input class=\"vPrice\" type=\"number\" min=\"0\" step=\"0.01\" required placeholder=\"40\"></div><div><label>Stock</label><input class=\"vStock\" type=\"number\" min=\"0\" step=\"1\" required placeholder=\"20\"></div><button type=\"button\" class=\"removeVar\" onclick=\"this.parentElement.remove()\">REMOVE</button>';document.getElementById('variationRows').appendChild(row);row.querySelector('.vName').value=v.name||'';row.querySelector('.vPrice').value=v.price??'';row.querySelector('.vStock').value=v.stock??0}"
+          new_func="function addVariation(v={name:'',price:'',stock:'',available:true,image_url:''}){const row=document.createElement('div');row.className='variationRow';row.innerHTML='<div><label>Variation</label><input class=\"vName\" required maxlength=\"100\" placeholder=\"e.g. Coca-Cola\"></div><div><label>Price (KSh)</label><input class=\"vPrice\" type=\"number\" min=\"0\" step=\"0.01\" required placeholder=\"40\"></div><div><label>Stock</label><input class=\"vStock\" type=\"number\" min=\"0\" step=\"1\" required placeholder=\"20\"></div><div class=\"variationImageBox\"><label>Image</label><input class=\"vImage\" type=\"file\" accept=\"image/jpeg,image/png,image/webp,image/gif\" onchange=\"previewVariationImage(this)\"><img class=\"variationPreview hidden\" alt=\"Variation image preview\"></div><button type=\"button\" class=\"removeVar\" onclick=\"this.parentElement.remove()\">REMOVE</button>';document.getElementById('variationRows').appendChild(row);row.querySelector('.vName').value=v.name||'';row.querySelector('.vPrice').value=v.price??'';row.querySelector('.vStock').value=v.stock??0;row.dataset.imageUrl=v.image_url||'';if(v.image_url){const img=row.querySelector('.variationPreview');img.src=v.image_url;img.classList.remove('hidden')}}"
+          if old_func not in s: raise SystemExit('addVariation marker not found')
+          s=s.replace(old_func,new_func,1)
+          marker="function clearVariations(){"
+          add="function previewVariationImage(input){const f=input.files[0],img=input.parentElement.querySelector('.variationPreview');if(!f)return;if(!f.type.startsWith('image/'))return msg('formMsg','Please choose an image file for the variation.');if(f.size>5242880)return msg('formMsg','Variation image is too large. Maximum size is 5 MB.');img.src=URL.createObjectURL(f);img.classList.remove('hidden')}\n"
+          if marker not in s: raise SystemExit('clear marker not found')
+          s=s.replace(marker,add+marker,1)
+          old_read="function readVariations(){return [...document.querySelectorAll('#variationRows .variationRow')].map(r=>({name:r.querySelector('.vName').value.trim(),price:Number(r.querySelector('.vPrice').value),stock:Number(r.querySelector('.vStock').value),available:true})).filter(v=>v.name)}"
+          new_read="function readVariations(){return [...document.querySelectorAll('#variationRows .variationRow')].map(r=>({name:r.querySelector('.vName').value.trim(),price:Number(r.querySelector('.vPrice').value),stock:Number(r.querySelector('.vStock').value),available:true,image_url:r.dataset.imageUrl||'',file:r.querySelector('.vImage')?.files?.[0]||null,row:r})).filter(v=>v.name)}"
+          if old_read not in s: raise SystemExit('read marker not found')
+          s=s.replace(old_read,new_read,1)
+          old_save="async function saveVariations(productId){const use=document.getElementById('useVariations').checked;const current=use?readVariations():[];if(use&&!current.length)throw Error('Add at least one variation or turn off Use variations.');const del=await sb.from('product_variations').delete().eq('product_id',productId);if(del.error)throw Error('Could not replace variations: '+del.error.message);if(current.length){const ins=await sb.from('product_variations').insert(current.map(v=>({...v,product_id:productId})));if(ins.error)throw Error('Could not save variations: '+ins.error.message)}}"
+          new_save="async function saveVariations(productId){const use=document.getElementById('useVariations').checked;const current=use?readVariations():[];if(use&&!current.length)throw Error('Add at least one variation or turn off Use variations.');for(const v of current){if(v.file){if(!v.file.type.startsWith('image/')||v.file.size>5242880)throw Error('Each variation image must be an image up to 5 MB.');v.image_url=await uploadImage(v.file)}}const del=await sb.from('product_variations').delete().eq('product_id',productId);if(del.error)throw Error('Could not replace variations: '+del.error.message);if(current.length){const rows=current.map(v=>({product_id:productId,name:v.name,price:v.price,stock_qty:v.stock,available:v.available,image_url:v.image_url||null}));const ins=await sb.from('product_variations').insert(rows);if(ins.error)throw Error('Could not save variations: '+ins.error.message)}}"
+          if old_save not in s: raise SystemExit('saveVariations marker not found')
+          s=s.replace(old_save,new_save,1)
+          old_edit="vv.forEach(v=>addVariation({name:v.name,price:v.price,stock:v.stock_qty,available:v.available}));"
+          new_edit="vv.forEach(v=>addVariation({name:v.name,price:v.price,stock:v.stock_qty,available:v.available,image_url:v.image_url||''}));"
+          if old_edit not in s: raise SystemExit('edit variations marker not found')
+          s=s.replace(old_edit,new_edit,1)
+          p.write_text(s)
+          PY
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add seller_products.html
+          git commit -m 'Allow images for product variations' || exit 0
+          git push
+      - name: Remove temporary workflow
+        run: |
+          git rm .github/workflows/leogo-variation-images.yml
+          git commit -m 'Remove temporary variation image workflow'
+          git push
