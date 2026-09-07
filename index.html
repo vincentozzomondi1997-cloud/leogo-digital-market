@@ -130,7 +130,7 @@
       <div class="container">
         <div class="banner">
           <div><h2 style="margin-bottom:5px">⚡ Quick Delivery</h2><div class="muted">Get essentials delivered fast. Local delivery from KSh 50 depending on zone, distance and weight.</div></div>
-          <button class="btn orange" onclick="openAuth()">Shop Now</button>
+          <button class="btn orange" onclick="session?goHome():openAuth()">Shop Now</button>
         </div>
       </div>
     </section>
@@ -217,7 +217,7 @@
   <div class="bottom-nav">
     <button onclick="goHome()">🏠<strong>Home</strong></button>
     <button onclick="openCart()">🛒<strong>Cart</strong></button>
-    <button onclick="openAuth()">👤<strong>Account</strong></button>
+    <button onclick="handleAccountClick()">👤<strong>Account</strong></button>
   </div>
 
   <div id="modalRoot"></div><div id="toastRoot"></div>
