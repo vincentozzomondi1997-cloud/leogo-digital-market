@@ -511,18 +511,26 @@ async function viewProduct(p){
 }
 async function handleProductAdd(p){
   if(!p) return;
-  if(sb){
-    const fresh=(await attachVariationInfo([p]))[0]||p;
-    if(Array.isArray(fresh.variations)&&fresh.variations.length){chooseVariation(fresh);return;}
-    if(Array.isArray(fresh.variations)&&fresh.variations.length===0){
-      const {data,error}=await sb.from("product_variations").select("id,product_id,name,price,stock_qty,available,image_url").eq("product_id",p.id).eq("available",true).gt("stock_qty",0).order("created_at",{ascending:true});
-      if(!error && Array.isArray(data) && data.length){chooseVariation({...p,variations:data});return;}
-    }
+  if(!sb){
+    openModal(`<div class="modal-head"><h2>Options unavailable</h2><button class="close" onclick="closeModal()">✕</button></div><div class="notice error">LEOGO could not connect to the product options database. The item was NOT added to the cart.</div><button class="btn light" style="width:100%" onclick="closeModal()">Close</button>`);
+    return;
+  }
+  const productId=String(p.id||'');
+  if(!/^[0-9a-f-]{36}$/i.test(productId)){
+    addToCart(p); return;
+  }
+  const {data:vars,error}=await sb.from("product_variations").select("id,product_id,name,price,stock_qty,available,image_url").eq("product_id",productId).eq("available",true).gt("stock_qty",0).order("created_at",{ascending:true});
+  if(error){
+    console.error("LEOGO CART VARIATION DEBUG:",error);
+    openModal(`<div class="modal-head"><h2>Product options error</h2><button class="close" onclick="closeModal()">✕</button></div><div class="notice error">LEOGO found the product, but could not read its options. Nothing was added to the cart.<br><small>${escapeHtml(error.message||"Database error")}</small></div><button class="btn light" style="width:100%" onclick="closeModal()">Close</button>`);
+    return;
+  }
+  if(Array.isArray(vars)&&vars.length){
+    chooseVariation({...p,variations:vars});
+    return;
   }
   addToCart(p);
 }
-
-/* LEOGO_VARIATION_CLICK_FIX_V2 */
 function chooseVariation(p){
   const vars=(p.variations||[]).filter(v=>v.available!==false&&Number(v.stock_qty||0)>0);
   if(!vars.length){toast("This product is currently out of stock","error");return;}
