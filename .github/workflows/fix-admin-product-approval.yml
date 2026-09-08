@@ -1,0 +1,47 @@
+name: Fix admin product approval
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-admin-product-approval.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch admin approval logic
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          p = Path('admin_products.html')
+          s = p.read_text(encoding='utf-8')
+
+          old = "const q=await sb.from('products').update({approval_status:status}).eq('id',id).eq('approval_status','pending');if(q.error){showPageMsg('Approval update failed: '+q.error.message);return}"
+          new = "const q=await sb.from('products').update({approval_status:status,approved:status==='approved'}).eq('id',id).eq('approval_status','pending').select('id,approval_status,approved').maybeSingle();if(q.error){showPageMsg('Approval update failed: '+q.error.message);return}if(!q.data){showPageMsg('Approval update made no change. The product was not updated.');return}"
+
+          if old not in s:
+              raise SystemExit('Expected approval code was not found; no file changed.')
+
+          s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+
+      - name: Commit patch and remove workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin_products.html
+          git commit -m 'Fix admin product approval result handling' || true
+          git push
+          rm -f .github/workflows/fix-admin-product-approval.yml
+          git add .github/workflows/fix-admin-product-approval.yml
+          git commit -m 'Remove temporary admin approval workflow' || true
+          git push
