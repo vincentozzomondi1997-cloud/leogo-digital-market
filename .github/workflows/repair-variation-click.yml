@@ -1,17 +1,18 @@
 name: Repair variation click
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
   repair:
-    if: "!contains(github.event.head_commit.message, '[variation-click-fixed]')"
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Patch customer Add to Cart variation flow
+        shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -61,11 +62,16 @@ function chooseVariation(p){'''
           p.write_text(s, encoding='utf-8')
           print('Patched index.html')
           PY
+
       - name: Commit patch
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git diff --cached --quiet && echo "No changes" && exit 0
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
           git commit -m "Fix variation selection before cart [variation-click-fixed]"
           git push
