@@ -1,0 +1,71 @@
+name: Repair variation click
+on:
+  push:
+    branches: [main]
+
+jobs:
+  repair:
+    if: "!contains(github.event.head_commit.message, '[variation-click-fixed]')"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch customer Add to Cart variation flow
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          marker = 'LEOGO_VARIATION_CLICK_FIX_V2'
+          if marker in s:
+              print('Already patched')
+              raise SystemExit(0)
+
+          old_card = '''  const action=hasVars?`chooseVariation(${JSON.stringify(p).replace(/'/g,"&#39;")})`:`addToCart(${JSON.stringify(p).replace(/'/g,"&#39;")})`;'''
+          new_card = '''  const action=`handleProductAdd(${JSON.stringify(p).replace(/'/g,"&#39;")})`;'''
+          if old_card not in s:
+              raise SystemExit('productCard action line not found')
+          s = s.replace(old_card, new_card, 1)
+
+          old_view = '''async function viewProduct(p){
+  if(sb && !Array.isArray(p.variations)) p=(await attachVariationInfo([p]))[0]||p;
+  if(Array.isArray(p.variations)&&p.variations.length){chooseVariation(p);return;}'''
+          new_view = '''async function viewProduct(p){
+  if(sb) p=(await attachVariationInfo([p]))[0]||p;
+  if(Array.isArray(p.variations)&&p.variations.length){chooseVariation(p);return;}'''
+          if old_view not in s:
+              raise SystemExit('viewProduct block not found')
+          s = s.replace(old_view, new_view, 1)
+
+          needle = '''function chooseVariation(p){'''
+          insert = '''async function handleProductAdd(p){
+  if(!p) return;
+  if(sb){
+    const fresh=(await attachVariationInfo([p]))[0]||p;
+    if(Array.isArray(fresh.variations)&&fresh.variations.length){chooseVariation(fresh);return;}
+    if(Array.isArray(fresh.variations)&&fresh.variations.length===0){
+      const {data,error}=await sb.from("product_variations").select("id,product_id,name,price,stock_qty,available,image_url").eq("product_id",p.id).eq("available",true).gt("stock_qty",0).order("created_at",{ascending:true});
+      if(!error && Array.isArray(data) && data.length){chooseVariation({...p,variations:data});return;}
+    }
+  }
+  addToCart(p);
+}
+
+/* LEOGO_VARIATION_CLICK_FIX_V2 */
+function chooseVariation(p){'''
+          if needle not in s:
+              raise SystemExit('chooseVariation anchor not found')
+          s = s.replace(needle, insert, 1)
+
+          p.write_text(s, encoding='utf-8')
+          print('Patched index.html')
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "Fix variation selection before cart [variation-click-fixed]"
+          git push
