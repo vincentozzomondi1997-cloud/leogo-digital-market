@@ -1,1 +1,207 @@
 <!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07152f">
+  <title>LEOGO — Everything You Need. Delivered.</title>
+  <meta name="description" content="LEOGO Digital Marketplace — products, services, transport and delivery.">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root{
+      --navy:#07152f; --navy2:#0d2349; --orange:#ff7a00; --orange2:#ff9f1c;
+      --ink:#101828; --muted:#667085; --bg:#f5f7fb; --card:#fff; --line:#e5e7eb;
+      --green:#16a34a; --red:#dc2626; --gold:#f4b400; --shadow:0 12px 35px rgba(7,21,47,.10);
+      --radius:18px;
+    }
+    *{box-sizing:border-box} html{scroll-behavior:smooth}
+    body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+    button,input,select,textarea{font:inherit} button{cursor:pointer}
+    .hidden{display:none!important}.container{max-width:1180px;margin:auto;padding:0 18px}
+    .topbar{background:var(--navy);color:#fff;font-size:13px;padding:8px 0}
+    .topbar .container{display:flex;justify-content:space-between;gap:10px;align-items:center}
+    header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.95);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+    .nav{height:72px;display:flex;align-items:center;gap:18px}
+    .brand{display:flex;align-items:center;gap:9px;text-decoration:none;color:var(--navy);font-weight:900;letter-spacing:-1px}
+    .brand img{width:48px;height:48px;object-fit:cover;border-radius:12px}
+    .brand span{font-size:25px}.brand em{color:var(--orange);font-style:normal}
+    .search{flex:1;display:flex;max-width:650px;margin:auto}
+    .search input{width:100%;border:1px solid var(--line);border-right:0;border-radius:999px 0 0 999px;padding:13px 17px;outline:none;background:#fff}
+    .search button{border:0;background:var(--orange);color:#fff;padding:0 20px;border-radius:0 999px 999px 0;font-weight:800}
+    .nav-actions{display:flex;align-items:center;gap:8px}
+    .iconbtn{position:relative;border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 12px}
+    .badge{position:absolute;top:-5px;right:-5px;background:var(--orange);color:#fff;border-radius:999px;min-width:19px;height:19px;font-size:11px;display:grid;place-items:center;font-weight:800}
+    .btn{border:0;border-radius:12px;padding:11px 15px;font-weight:800}
+    .btn.primary{background:var(--navy);color:#fff}.btn.orange{background:var(--orange);color:#fff}
+    .btn.light{background:#eef3fb;color:var(--navy)}.btn.danger{background:#fee2e2;color:#991b1b}
+    .hero{background:linear-gradient(135deg,var(--navy),#0d2f60 65%,#163e75);color:#fff;padding:44px 0 34px}
+    .hero-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:25px;align-items:center}
+    .hero h1{font-size:clamp(38px,6vw,66px);line-height:.98;margin:0 0 16px;letter-spacing:-3px}
+    .hero h1 span{color:var(--orange)}.hero p{font-size:18px;max-width:620px;color:#d9e4f7}
+    .hero-search{background:#fff;border-radius:16px;padding:7px;display:flex;max-width:650px;margin-top:25px}
+    .hero-search input{flex:1;border:0;outline:0;padding:13px;background:transparent;color:#111}
+    .hero-search button{border:0;border-radius:11px;background:var(--orange);color:#fff;padding:0 20px;font-weight:900}
+    .hero-card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);border-radius:24px;padding:24px}
+    .hero-card img{width:100%;max-width:330px;display:block;margin:auto;border-radius:20px}
+    section{padding:30px 0}.section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+    h2{margin:0;font-size:24px}.muted{color:var(--muted)}
+    .categories{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+    .cat{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px 10px;text-align:center;box-shadow:var(--shadow);transition:.18s}
+    .cat:hover{transform:translateY(-3px);border-color:#cbd5e1}.cat .emoji{font-size:31px}.cat b{display:block;margin-top:8px;font-size:14px}
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+    .product{background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 5px 18px rgba(0,0,0,.05)}
+    .product-img{height:170px;background:#eef2f7;display:grid;place-items:center;overflow:hidden}
+    .product-img img{width:100%;height:100%;object-fit:cover}.placeholder{font-size:50px}
+    .product-body{padding:14px}.product h3{font-size:16px;margin:0 0 6px}.price{font-size:19px;font-weight:900;color:var(--navy)}
+    .product-meta{font-size:12px;color:var(--muted);margin:7px 0 12px}.product-actions{display:flex;gap:8px}.product-actions button{flex:1}
+    .banner{background:linear-gradient(100deg,#fff1e5,#ffe4c9);border:1px solid #ffd3a7;border-radius:20px;padding:22px;display:flex;justify-content:space-between;align-items:center;gap:15px}
+    footer{background:var(--navy);color:#d9e4f7;padding:40px 0 90px;margin-top:25px}.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:30px}
+    footer h3{color:#fff;margin-top:0}.footer-link{display:block;color:#cbd5e1;text-decoration:none;margin:8px 0}
+    .bottom-nav{display:none}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.58);z-index:100;display:grid;place-items:center;padding:18px}
+    .modal-card{background:#fff;width:min(520px,100%);max-height:92vh;overflow:auto;border-radius:22px;padding:24px;box-shadow:0 25px 80px rgba(0,0,0,.3)}
+    .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}.close{border:0;background:#f2f4f7;border-radius:10px;width:38px;height:38px}
+    .tabs{display:flex;background:#f2f4f7;padding:4px;border-radius:12px;margin-bottom:18px}.tabs button{flex:1;border:0;padding:10px;border-radius:9px;background:transparent;font-weight:800}.tabs button.active{background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+    .field{margin:12px 0}.field label{display:block;font-size:13px;font-weight:800;margin-bottom:6px}.field input,.field select,.field textarea{width:100%;border:1px solid #d7dce4;border-radius:11px;padding:11px;outline:none}.field textarea{min-height:90px;resize:vertical}
+    .notice{padding:11px 13px;border-radius:11px;background:#fff7ed;color:#9a3412;font-size:13px;margin:10px 0}.success{background:#ecfdf3;color:#166534}.error{background:#fef2f2;color:#991b1b}
+    .dash{display:none;min-height:70vh}.dash.active{display:block}.dash-head{background:var(--navy);color:#fff;padding:25px 0}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin:20px 0}.stat{background:#fff;border:1px solid var(--line);border-radius:16px;padding:17px}.stat b{font-size:25px;display:block}
+    .panel{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:18px}.panel h3{margin-top:0}
+    .dash-grid{display:grid;grid-template-columns:240px 1fr;gap:18px}.side{background:#fff;border:1px solid var(--line);border-radius:18px;padding:10px;height:max-content}.side button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:12px;border-radius:10px;font-weight:700}.side button.active,.side button:hover{background:#eef3fb;color:var(--navy)}
+    .table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;min-width:650px}.table th,.table td{text-align:left;padding:11px;border-bottom:1px solid var(--line);font-size:13px}.table th{color:var(--muted);font-size:12px}
+    .pill{display:inline-flex;padding:5px 9px;border-radius:999px;background:#eef2ff;font-size:11px;font-weight:800}.pill.green{background:#dcfce7;color:#166534}.pill.orange{background:#ffedd5;color:#9a3412}.pill.red{background:#fee2e2;color:#991b1b}
+    .cart-row{display:grid;grid-template-columns:60px 1fr auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}.cart-row img{width:60px;height:60px;border-radius:10px;object-fit:cover}
+    .qty{display:flex;align-items:center;gap:8px}.qty button{width:28px;height:28px;border:1px solid var(--line);background:#fff;border-radius:7px}
+    .toast{position:fixed;right:18px;bottom:18px;background:var(--navy);color:#fff;padding:13px 17px;border-radius:12px;z-index:200;box-shadow:var(--shadow)}
+    .empty{text-align:center;padding:35px;color:var(--muted)}
+    @media(max-width:900px){.hero-grid{grid-template-columns:1fr}.hero-card{display:none}.categories{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:repeat(2,1fr)}.footer-grid{grid-template-columns:1fr 1fr}.dash-grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.search{display:none}.bottom-nav{position:fixed;display:flex;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);z-index:60;justify-content:space-around;padding:8px 5px}.bottom-nav button{border:0;background:transparent;font-size:11px;color:#475467}.bottom-nav button strong{display:block;font-size:19px}}
+    @media(max-width:520px){.topbar{display:none}.nav{height:62px}.brand img{width:40px;height:40px}.brand span{font-size:20px}.nav-actions .hide-sm{display:none}.hero{padding:30px 0}.hero h1{letter-spacing:-2px}.categories{gap:8px}.cat{padding:13px 5px}.grid{grid-template-columns:1fr 1fr;gap:10px}.product-img{height:135px}.product-body{padding:10px}.product h3{font-size:14px}.price{font-size:17px}.banner{display:block}.footer-grid{grid-template-columns:1fr}.stats{gap:9px}.stat{padding:13px}.stat b{font-size:21px}}
+  </style>
+</head>
+<body>
+  <div class="topbar"><div class="container"><span>🇰🇪 Starting in Siaya • Expanding across Kenya</span><span>Everything You Need. Delivered.</span></div></div>
+  <header id="mainHeader">
+    <div class="container nav">
+      <a class="brand" href="#" onclick="goHome();return false;"><img id="brandLogo" alt="LEOGO"><span>LEO<em>GO</em></span></a>
+      <form class="search" onsubmit="searchProducts(event,false)"><input id="navSearch" placeholder="Search food, groceries, products & services..."><button>Search</button></form>
+      <div class="nav-actions">
+        <button class="iconbtn hide-sm" onclick="openCart()">🛒<span class="badge" id="cartBadge">0</span></button>
+        <button class="btn light hide-sm" id="accountBtn" onclick="handleAccountClick()">Login</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="storefront">
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <div style="font-weight:900;color:#ffb15a;letter-spacing:1px">LEOGO DIGITAL SERVICES</div>
+          <h1>Everything You Need. <span>Delivered.</span></h1>
+          <p>Find products, local businesses, professional services, transport and delivery — all through one simple digital marketplace.</p>
+          <form class="hero-search" onsubmit="searchProducts(event,true)">
+            <input id="heroSearch" placeholder="What are you looking for today?">
+            <button>🔎 Search</button>
+          </form>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
+            <button class="btn orange" onclick="filterCategory('Food & Drinks')">🍔 Food</button>
+            <button class="btn light" onclick="filterCategory('Groceries')">🛒 Groceries</button>
+            <button class="btn light" onclick="filterCategory('Services')">🛠️ Services</button>
+            <button class="btn light" onclick="filterCategory('Transport')">🚚 Transport</button>
+          </div>
+        </div>
+        <div class="hero-card"><img id="heroLogo" alt="LEOGO logo"></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="container">
+        <div class="section-head"><h2>Explore LEOGO</h2><button class="btn light" onclick="loadAllProducts()">View all</button></div>
+        <div class="categories" id="categories"></div>
+      </div>
+    </section>
+
+    <section style="padding-top:5px">
+      <div class="container">
+        <div class="section-head"><div><h2 id="productTitle">Popular Near You</h2><div class="muted">Local sellers and trusted providers</div></div><button class="btn light" onclick="loadAllProducts()">View all</button></div>
+        <div class="grid" id="productGrid"></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="container">
+        <div class="banner">
+          <div><h2 style="margin-bottom:5px">⚡ Quick Delivery</h2><div class="muted">Get essentials delivered fast. Local delivery from KSh 50 depending on zone, distance and weight.</div></div>
+          <button class="btn orange" onclick="session?goHome():openAuth()">Shop Now</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="dash" class="dash">
+    <div class="dash-head"><div class="container"><h2>My LEOGO Account</h2><div id="dashUser" style="margin-top:5px;color:#d9e4f7"></div></div></div>
+    <section><div class="container">
+      <div class="stats"><div class="stat"><span class="muted">Orders</span><b id="statOrders">0</b></div><div class="stat"><span class="muted">Pending</span><b id="statPending">0</b></div><div class="stat"><span class="muted">Delivered</span><b id="statDelivered">0</b></div><div class="stat"><span class="muted">Total Spent</span><b id="statSpent">KSh 0</b></div></div>
+      <div class="dash-grid"><aside class="side"><button class="active" onclick="dashTab('overview',this)">Overview</button><button onclick="dashTab('orders',this)">My Orders</button><button onclick="dashTab('profile',this)">My Profile</button><button onclick="dashTab('addresses',this)">Addresses</button><button onclick="signOut()">Sign Out</button></aside><div>
+        <div id="dashOverview" class="dash-panel"></div>
+        <div id="dashOrders" class="dash-panel hidden"></div>
+        <div id="dashProfile" class="dash-panel hidden"></div>
+        <div id="dashAddresses" class="dash-panel hidden"></div>
+      </div></div>
+    </div></section>
+  </div>
+
+  <div id="modal" class="modal hidden"><div class="modal-card" id="modalCard"></div></div>
+  <div id="toast" class="toast hidden"></div>
+
+  <nav class="bottom-nav">
+    <button onclick="goHome()"><strong>⌂</strong>Home</button>
+    <button onclick="openCart()"><strong>🛒</strong>Cart<span class="badge" id="mobileCartBadge">0</span></button>
+    <button onclick="handleAccountClick()"><strong>👤</strong>Account</button>
+  </nav>
+
+  <script>
+    const SUPABASE_URL='https://twpiloiiigdghwcdjbnj.supabase.co';
+    const SUPABASE_ANON_KEY='sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX';
+    const SITE_URL='https://vincentozzomondi1997-cloud.github.io/leogo-digital-market/';
+    const sb=window.supabase?supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY):null;
+    const $=id=>document.getElementById(id);
+    let cart=JSON.parse(localStorage.getItem('leogo_cart')||'[]');
+    let allProducts=[]; let session=null; let currentCategory=null;
+    const categories=[['🍔','Food & Drinks'],['🛒','Groceries'],['📦','Dry Goods'],['🛍️','Marketplace'],['🛠️','Services'],['🚚','Transport']];
+    function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+    function money(v){return 'KSh '+Number(v||0).toLocaleString('en-KE');}
+    function toast(msg,type=''){const t=$('toast');t.textContent=msg;t.className='toast';if(type==='error')t.style.background='#991b1b';else t.style.background='var(--navy)';setTimeout(()=>t.classList.add('hidden'),2600)}
+    function openModal(html){$('modalCard').innerHTML=html;$('modal').classList.remove('hidden')}
+    function closeModal(){$('modal').classList.add('hidden')}
+    $('modal').addEventListener('click',e=>{if(e.target.id==='modal')closeModal()});
+    function updateCartBadge(){const n=cart.reduce((a,x)=>a+Number(x.qty||1),0);$('cartBadge').textContent=n;$('mobileCartBadge').textContent=n}
+    function goHome(){session?showDashboard(false):showStorefront();window.scrollTo({top:0,behavior:'smooth'})}
+    function showStorefront(){$('storefront').style.display='block';$('dash').classList.remove('active')}
+    function showDashboard(v=true){$('storefront').style.display=v?'none':'block';$('dash').classList.toggle('active',v);if(v)loadAccount()}
+    function handleAccountClick(){session?showDashboard(true):openAuth()}
+    function renderCategories(){$('categories').innerHTML=categories.map(c=>`<button class="cat" onclick="filterCategory('${c[1].replace(/'/g,"\\'")}')"><div class="emoji">${c[0]}</div><b>${escapeHtml(c[1])}</b></button>`).join('')}
+    function productCard(p){const img=p.image_url?`<img src="${escapeHtml(p.image_url)}" alt="">`:`<div class="placeholder">🛍️</div>`;return `<article class="product"><div class="product-img">${img}</div><div class="product-body"><h3>${escapeHtml(p.name)}</h3><div class="price">${money(p.price)}</div><div class="product-meta">${escapeHtml(p.category||'Marketplace')} • ${p.available===false?'Unavailable':'Available'}</div><div class="product-actions"><button class="btn light" onclick='viewProduct(${JSON.stringify(p).replace(/'/g,'&#39;')})'>View</button><button class="btn orange" ${p.available===false?'disabled':''} onclick='addToCart(${JSON.stringify(p).replace(/'/g,'&#39;')})'>Add</button></div></div></article>`}
+    function renderDemoProducts(category,query=''){const demo=[{id:'demo-1',name:'Fresh Vegetables',price:150,category:'Groceries',description:'Fresh vegetables.',image_url:'',available:true,seller_id:null},{id:'demo-2',name:'Soda 300ml',price:40,category:'Food & Drinks',description:'Choose your brand.',image_url:'',available:true,seller_id:null},{id:'demo-3',name:'Laundry Service',price:300,category:'Services',description:'Professional laundry service.',image_url:'',available:true,seller_id:null}];let a=demo.filter(p=>(!category||p.category===category)&&(!query||p.name.toLowerCase().includes(query.toLowerCase())));$('productGrid').innerHTML=a.length?a.map(productCard).join(''):`<div class="empty" style="grid-column:1/-1">No matching listings yet.</div>`}
+    async function loadProducts(category=null,query=''){currentCategory=category||null;if(!sb){renderDemoProducts(category,query);return}let q=sb.from('products').select('id,name,description,price,image_url,category,available,seller_id').eq('approved',true).order('created_at',{ascending:false}).limit(40);if(category)q=q.eq('category',category);if(query)q=q.ilike('name',`%${query}%`);const {data,error}=await q;if(error){toast(error.message,'error');return}allProducts=data||[];renderProducts(allProducts)}
+    function renderProducts(list){$('productGrid').innerHTML=list.length?list.map(productCard).join(''):`<div class="empty" style="grid-column:1/-1">No matching listings yet.</div>`}
+    function loadAllProducts(){currentCategory=null;$('productTitle').textContent='All Listings';loadProducts()}
+    function filterCategory(c){currentCategory=c;$('productTitle').textContent=c;loadProducts(c);window.scrollTo({top:$('productGrid').getBoundingClientRect().top+window.scrollY-100,behavior:'smooth'})}
+    function searchProducts(e,hero=false){e.preventDefault();const q=$(hero?'heroSearch':'navSearch').value.trim();$('productTitle').textContent=q?`Search: ${q}`:'Popular Near You';loadProducts(currentCategory,q)}
+    function viewProduct(p){openModal(`<div class="modal-head"><h2>${escapeHtml(p.name)}</h2><button class="close" onclick="closeModal()">✕</button></div>${p.image_url?`<img src="${escapeHtml(p.image_url)}" style="width:100%;height:220px;object-fit:cover;border-radius:15px">`:`<div style="height:180px;background:#eef2f7;border-radius:15px;display:grid;place-items:center;font-size:70px">🛍️</div>`}<p class="muted">${escapeHtml(p.description||'No description provided.')}</p><h2>${money(p.price)}</h2><button class="btn orange" style="width:100%" onclick='addToCart(${JSON.stringify(p).replace(/'/g,'&#39;')});closeModal()'>Add to Cart</button>`)}
+    function addToCart(p){const found=cart.find(x=>x.id===p.id);if(found)found.qty++;else cart.push({...p,qty:1});localStorage.setItem('leogo_cart',JSON.stringify(cart));updateCartBadge();toast('Added to cart')}
+    function openCart(){let total=cart.reduce((a,x)=>a+Number(x.price||0)*Number(x.qty||1),0);openModal(`<div class="modal-head"><h2>Your Cart</h2><button class="close" onclick="closeModal()">✕</button></div>${cart.length?cart.map((x,i)=>`<div class="cart-row"><div>${x.image_url?`<img src="${escapeHtml(x.image_url)}">`:'🛍️'}</div><div><b>${escapeHtml(x.name)}</b><div>${money(x.price)}</div><div class="qty"><button onclick="changeQty(${i},-1)">−</button><span>${x.qty}</span><button onclick="changeQty(${i},1)">+</button><button class="btn danger" style="padding:4px 8px" onclick="removeCart(${i})">Remove</button></div></div><b>${money(Number(x.price)*Number(x.qty))}</b></div>`).join('')+`<div style="display:flex;justify-content:space-between;padding:18px 0;font-size:18px"><b>Total</b><b>${money(total)}</b></div><button class="btn orange" style="width:100%" onclick="startCheckout()">Checkout</button>`:'<div class="empty">Your cart is empty.</div>'}`)}
+    function changeQty(i,d){if(!cart[i])return;cart[i].qty+=d;if(cart[i].qty<=0)cart.splice(i,1);localStorage.setItem('leogo_cart',JSON.stringify(cart));updateCartBadge();openCart()}
+    function removeCart(i){cart.splice(i,1);localStorage.setItem('leogo_cart',JSON.stringify(cart));updateCartBadge();openCart()}
+    function openAuth(){openModal(`<div class="modal-head"><h2>LEOGO Account</h2><button class="close" onclick="closeModal()">✕</button></div><div class="tabs"><button id="loginTab" class="active" onclick="authMode('login')">Login</button><button id="signupTab" onclick="authMode('signup')">Create Account</button></div><div id="authBox"></div>`);authMode('login')}
+    function authMode(mode){$('loginTab').classList.toggle('active',mode==='login');$('signupTab').classList.toggle('active',mode==='signup');$('authBox').innerHTML=mode==='login'?`<div class="field"><label>Phone, email or username</label><input id="authIdentity" placeholder="Enter phone, email or username"></div><div class="field"><label>6-digit PIN</label><input id="authPin" type="password" maxlength="6" inputmode="numeric" placeholder="••••••"></div><button class="btn orange" style="width:100%" onclick="loginCustomer()">Login</button><p class="muted" style="font-size:13px;margin-top:12px">Customer accounts will be connected to secure order history and delivery details.</p>`:`<div class="field"><label>Full Name</label><input id="signupName"></div><div class="field"><label>Email</label><input id="signupEmail" type="email"></div><div class="field"><label>Phone</label><input id="signupPhone"></div><div class="field"><label>6-digit PIN</label><input id="signupPin" type="password" maxlength="6" inputmode="numeric"></div><button class="btn orange" style="width:100%" onclick="signupCustomer()">Create Account</button>`}
+    async function signupCustomer(){if(!sb){toast('Supabase connection unavailable','error');return}const name=$('signupName').value.trim(),email=$('signupEmail').value.trim(),phone=$('signupPhone').value.trim(),pin=$('signupPin').value.trim();if(!name||!email||!phone||!/^[0-9]{6}$/.test(pin)){toast('Please complete all fields. PIN must be 6 digits.','error');return}const r=await sb.auth.signUp({email,password:pin+'Leogo!'});if(r.error){toast(r.error.message,'error');return}toast('Account created. Check your email if verification is required.');closeModal()}
+    async function loginCustomer(){toast('Customer login is being connected to the secure account system.','error')}
+    async function signOut(){if(sb)await sb.auth.signOut();session=null;showStorefront();toast('Signed out')}
+    async function loadAccount(){if(!sb||!session)return;const u=session.user;$('dashUser').textContent=u.email||'Customer';$('dashOverview').innerHTML=`<div class="panel"><h3>Welcome to LEOGO</h3><p class="muted">Your account dashboard is ready for orders, tracking, addresses and profile details.</p></div>`;$('dashOrders').innerHTML='<div class="panel"><h3>My Orders</h3><div class="empty">No orders loaded yet.</div></div>';$('dashProfile').innerHTML=`<div class="panel"><h3>My Profile</h3><p><b>Email:</b> ${escapeHtml(u.email||'')}</p></div>`;$('dashAddresses').innerHTML='<div class="panel"><h3>Addresses</h3><div class="empty">Add delivery addresses here.</div></div>`}
+    function dashTab(name,btn){document.querySelectorAll('.dash-panel').forEach(x=>x.classList.add('hidden'));$('dash'+name[0].toUpperCase()+name.slice(1)).classList.remove('hidden');document.querySelectorAll('.side button').forEach(x=>x.classList.remove('active'));if(btn)btn.classList.add('active')}
+    async function startCheckout(){if(!cart.length){toast('Your cart is empty','error');return}if(!session){closeModal();openAuth();toast('Please log in before checkout','error');return}openModal(`<div class="modal-head"><h2>Checkout</h2><button class="close" onclick="closeModal()">✕</button></div><div class="notice">Delivery fee will be calculated from your delivery location, distance and weight.</div><div class="field"><label>Delivery Address</label><textarea id="checkoutAddress" placeholder="Enter your delivery location"></textarea></div><div class="field"><label>Payment Method</label><select id="checkoutPayment"><option>M-PESA</option><option>Cash on Delivery (up to KSh 10,000)</option></select></div><button class="btn orange" style="width:100%" onclick="placeOrder()">Place Order</button>`)}
+    async function placeOrder(){toast('Order submission will be connected after checkout rules are finalized.','error')}
+    async function init(){renderCategories();updateCartBadge();if(sb){const s=await sb.auth.getSession();session=s.data.session||null;sb.auth.onAuthStateChange((_e,sess)=>{session=sess;document.getElementById('accountBtn').textContent=session?'Account':'Login'});$('accountBtn').textContent=session?'Account':'Login'}loadProducts();const logo='data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect width="400" height="400" rx="70" fill="#07152f"/><path d="M95 125h210l-18 205H113z" fill="#ff7a00"/><path d="M145 130c0-48 110-48 110 0" fill="none" stroke="#fff" stroke-width="18" stroke-linecap="round"/><text x="200" y="245" text-anchor="middle" font-family="Arial" font-weight="900" font-size="70" fill="#fff">LEO</text><text x="200" y="300" text-anchor="middle" font-family="Arial" font-weight="900" font-size="70" fill="#ff7a00">GO</text></svg>`);$('brandLogo').src=logo;$('heroLogo').src=logo}
+    init();
+  </script>
+</body>
+</html>
