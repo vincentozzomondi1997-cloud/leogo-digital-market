@@ -1,0 +1,133 @@
+name: Add customer product variations
+on:
+  push:
+    paths:
+      - '.github/workflows/add-customer-variations.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch customer catalogue safely
+        run: |
+          cat > /tmp/patch.py <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          if 'function attachVariationInfo' in s:
+              raise SystemExit('Variation patch already present; refusing to run twice.')
+
+          product_block=r'''async function attachVariationInfo(list){
+            if(!sb || !Array.isArray(list) || !list.length) return list||[];
+            const ids=list.map(p=>p.id).filter(id=>/^[0-9a-f-]{36}$/i.test(String(id)));
+            if(!ids.length) return list;
+            const {data,error}=await sb.from("product_variations")
+              .select("id,product_id,name,price,stock_qty,available,image_url")
+              .in("product_id",ids).eq("available",true).order("created_at",{ascending:true});
+            if(error){console.warn("Variation lookup failed:",error.message);return list;}
+            const byProduct={};
+            (data||[]).forEach(v=>{if(Number(v.stock_qty||0)>0){(byProduct[v.product_id] ||= []).push(v)}});
+            return list.map(p=>({...p,variations:byProduct[p.id]||[]}));
+          }
+          function productCard(p){
+            const img=p.image_url ? `<img src="${escapeHtml(p.image_url)}" alt="">` : `<div class="placeholder">🛍️</div>`;
+            const hasVars=Array.isArray(p.variations)&&p.variations.length>0;
+            const shownPrice=hasVars?Math.min(...p.variations.map(v=>Number(v.price||0))):Number(p.price||0);
+            const action=hasVars?`chooseVariation(${JSON.stringify(p).replace(/'/g,"&#39;")})`:`addToCart(${JSON.stringify(p).replace(/'/g,"&#39;")})`;
+            return `<article class="product"><div class="product-img">${img}</div><div class="product-body">
+              <h3>${escapeHtml(p.name)}</h3><div class="price">${hasVars?"From ":""}${money(shownPrice)}</div>
+              <div class="product-meta">${escapeHtml(p.category||"Marketplace")} • ${p.available===false?"Unavailable":hasVars?"Options available":"Available"}</div>
+              <div class="product-actions"><button class="btn light" onclick='viewProduct(${JSON.stringify(p).replace(/'/g,"&#39;")})'>View</button><button class="btn orange" ${p.available===false?"disabled":""} onclick='${action}'>${hasVars?"Choose options":"Add"}</button></div>
+            </div></article>`;
+          }
+          async function loadProducts(category=null, query=""){
+            if(!sb){ renderDemoProducts(category,query); return; }
+            let q=sb.from("products").select("id,name,description,price,image_url,category,available,seller_id").eq("approved",true).order("created_at",{ascending:false}).limit(40);
+            if(category) q=q.eq("category",category);
+            if(query) q=q.ilike("name",`%${query}%`);
+            const {data,error}=await q;
+            if(error){toast(error.message,"error"); return}
+            allProducts=await attachVariationInfo(data||[]);
+            renderProducts(allProducts);
+          }'''
+          s,n=re.subn(r'function productCard\(p\)\{.*?\n\}\nasync function loadProducts\(category=null, query=""\)\{.*?\n\}',product_block,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit(f'product block replacement failed: {n}')
+
+          category_old='''    if(!error && data?.length){
+      $("categoryGrid").innerHTML=data.map(productCard).join("");
+      return;
+    }'''
+          category_new='''    if(!error && data?.length){
+      const enriched=await attachVariationInfo(data);
+      $("categoryGrid").innerHTML=enriched.map(productCard).join("");
+      return;
+    }'''
+          if category_old not in s: raise SystemExit('category replacement target missing')
+          s=s.replace(category_old,category_new,1)
+
+          cart_block=r'''async function viewProduct(p){
+            if(sb && !Array.isArray(p.variations)) p=(await attachVariationInfo([p]))[0]||p;
+            if(Array.isArray(p.variations)&&p.variations.length){chooseVariation(p);return;}
+            openModal(`<div class="modal-head"><h2>${escapeHtml(p.name)}</h2><button class="close" onclick="closeModal()">✕</button></div>
+              ${p.image_url?`<img src="${escapeHtml(p.image_url)}" style="width:100%;height:220px;object-fit:cover;border-radius:15px">`:`<div style="height:180px;background:#eef2f7;border-radius:15px;display:grid;place-items:center;font-size:70px">🛍️</div>`}
+              <p class="muted">${escapeHtml(p.description||"No description provided.")}</p><h2>${money(p.price)}</h2>
+              <button class="btn orange" style="width:100%" onclick='addToCart(${JSON.stringify(p).replace(/'/g,"&#39;")});closeModal()'>Add to Cart</button>`);
+          }
+          function chooseVariation(p){
+            const vars=(p.variations||[]).filter(v=>v.available!==false&&Number(v.stock_qty||0)>0);
+            if(!vars.length){toast("This product is currently out of stock","error");return;}
+            openModal(`<div class="modal-head"><div><h2 style="margin:0">${escapeHtml(p.name)}</h2><div class="muted">Choose an option</div></div><button class="close" onclick="closeModal()">✕</button></div>
+              <div style="display:grid;gap:10px">${vars.map((v,i)=>`<label style="display:grid;grid-template-columns:24px 60px 1fr;gap:10px;align-items:center;border:1px solid ${i===0?"#ff7a00":"#e5e7eb"};border-radius:15px;padding:10px;cursor:pointer"><input type="radio" name="leogoVariation" value="${escapeHtml(v.id)}" ${i===0?"checked":""} style="width:18px;height:18px">${v.image_url?`<img src="${escapeHtml(v.image_url)}" style="width:60px;height:60px;object-fit:cover;border-radius:10px">`:`<div style="width:60px;height:60px;background:#eef2f7;border-radius:10px;display:grid;place-items:center;font-size:28px">🛍️</div>`}<div><b>${escapeHtml(v.name)}</b><div class="muted">${money(v.price)} • ${Number(v.stock_qty)} available</div></div></label>`).join("")}</div>
+              <div class="notice" style="margin-top:14px">Each option has its own price, stock and image.</div>
+              <button class="btn orange" style="width:100%;margin-top:4px" onclick='addSelectedVariation(${JSON.stringify(p).replace(/'/g,"&#39;")})'>Add Selected Option to Cart</button>`);
+          }
+          function addSelectedVariation(p){
+            const id=document.querySelector('input[name="leogoVariation"]:checked')?.value;
+            const v=(p.variations||[]).find(x=>x.id===id);
+            if(!v){toast("Please choose an option","error");return;}
+            addVariationToCart(p,v);closeModal();
+          }
+          function addVariationToCart(p,v){
+            const stock=Number(v.stock_qty||0);
+            if(stock<=0||v.available===false){toast("That option is out of stock","error");return;}
+            const cartId=`${p.id}::${v.id}`;
+            const found=cart.find(x=>x.id===cartId);
+            if(found){if(found.qty>=stock){toast("You have reached the available stock for this option","error");return;}found.qty++;}
+            else cart.push({id:cartId,product_id:p.id,variation_id:v.id,name:`${p.name} - ${v.name}`,base_product_name:p.name,variation_name:v.name,description:p.description||"",category:p.category,seller_id:p.seller_id||null,price:Number(v.price),image_url:v.image_url||p.image_url||"",qty:1,stock_qty:stock});
+            localStorage.setItem("leogo_cart",JSON.stringify(cart));updateCartBadge();toast(`${v.name} added to cart`);
+          }
+          function addToCart(p){
+            if(Array.isArray(p.variations)&&p.variations.length){chooseVariation(p);return;}
+            const found=cart.find(x=>x.id===p.id);
+            if(found) found.qty++; else cart.push({...p,product_id:p.id,qty:1});
+            localStorage.setItem("leogo_cart",JSON.stringify(cart)); updateCartBadge(); toast("Added to cart");
+          }'''
+          s,n=re.subn(r'function viewProduct\(p\)\{.*?\n\}\nfunction addToCart\(p\)\{.*?\n\}',cart_block,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit(f'cart block replacement failed: {n}')
+
+          checkout_old='const items=cart.map(x=>({order_id:order.id,product_id:x.id,seller_id:x.seller_id||null,product_name:x.name,quantity:x.qty,unit_price:x.price,line_total:Number(x.price)*x.qty}));'
+          checkout_new='const items=cart.map(x=>({order_id:order.id,product_id:x.product_id||x.id,seller_id:x.seller_id||null,product_name:x.name,quantity:x.qty,unit_price:x.price,line_total:Number(x.price)*x.qty}));'
+          if checkout_old not in s: raise SystemExit('checkout UUID target missing')
+          s=s.replace(checkout_old,checkout_new,1)
+          p.write_text(s,encoding='utf-8')
+          print('PATCH_OK',len(s))
+          PY
+          python3 /tmp/patch.py
+          grep -q 'function attachVariationInfo' index.html
+          grep -q 'function chooseVariation' index.html
+          grep -q 'product_id:x.product_id||x.id' index.html
+          git diff --check
+          git diff --stat
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet && { echo 'No changes'; exit 1; }
+          git commit -m 'Add customer product variation selection'
+          git push
+          rm -f .github/workflows/add-customer-variations.yml
+          git add .github/workflows/add-customer-variations.yml
+          git commit -m 'Remove temporary customer variation patch workflow'
+          git push
