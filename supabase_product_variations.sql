@@ -64,6 +64,13 @@ using (
   )
 );
 
+-- LEOGO staff must be able to review the complete product package before approval.
+drop policy if exists "LEOGO staff can view product variations" on public.product_variations;
+create policy "LEOGO staff can view product variations"
+on public.product_variations for select
+to authenticated
+using (public.leogo_is_product_admin());
+
 drop policy if exists "Active sellers can insert own variations" on public.product_variations;
 create policy "Active sellers can insert own variations"
 on public.product_variations for insert
