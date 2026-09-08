@@ -11,43 +11,11 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Repair seller ID and cart variation flow
+      - name: Fix seller_id
         run: |
           sed -i 's/seller_id:seller.auth_user_id/seller_id:seller.id/g; s/seller_id: seller.auth_user_id/seller_id: seller.id/g; s/seller_id:seller?.auth_user_id/seller_id:seller.id/g; s/seller_id: seller?.auth_user_id/seller_id: seller.id/g' seller_products.html
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('index.html')
-          s=p.read_text()
-          start=s.index('async function handleProductAdd(p){')
-          end=s.index('function chooseVariation(p){', start)
-          new=r'''async function handleProductAdd(p){
-            if(!p) return;
-            if(!sb){
-              openModal(`<div class="modal-head"><h2>Options unavailable</h2><button class="close" onclick="closeModal()">✕</button></div><div class="notice error">LEOGO could not connect to the product options database. The item was NOT added to the cart.</div><button class="btn light" style="width:100%" onclick="closeModal()">Close</button>`);
-              return;
-            }
-            const productId=String(p.id||'');
-            if(!/^[0-9a-f-]{36}$/i.test(productId)){
-              addToCart(p); return;
-            }
-            const {data:vars,error}=await sb.from("product_variations").select("id,product_id,name,price,stock_qty,available,image_url").eq("product_id",productId).eq("available",true).gt("stock_qty",0).order("created_at",{ascending:true});
-            if(error){
-              console.error("LEOGO CART VARIATION DEBUG:",error);
-              openModal(`<div class="modal-head"><h2>Product options error</h2><button class="close" onclick="closeModal()">✕</button></div><div class="notice error">LEOGO found the product, but could not read its options. Nothing was added to the cart.<br><small>${escapeHtml(error.message||"Database error")}</small></div><button class="btn light" style="width:100%" onclick="closeModal()">Close</button>`);
-              return;
-            }
-            if(Array.isArray(vars)&&vars.length){
-              chooseVariation({...p,variations:vars});
-              return;
-            }
-            addToCart(p);
-          }
-          '''
-          s=s[:start]+new+s[end:]
-          p.write_text(s)
-          PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html seller_products.html
-          git diff --cached --quiet || git commit -m 'Harden add to cart variation selection'
+          git add seller_products.html
+          git diff --cached --quiet || git commit -m 'Fix seller product owner ID'
           git push
