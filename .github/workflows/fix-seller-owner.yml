@@ -1,6 +1,8 @@
 name: Fix seller owner ID
 on:
-  workflow_dispatch:
+  push:
+    paths:
+      - 'seller_products.html'
 jobs:
   fix:
     runs-on: ubuntu-latest
