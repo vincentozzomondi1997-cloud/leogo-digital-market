@@ -9,16 +9,20 @@ CREATE OR REPLACE FUNCTION public.leogo_moderate_product(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 DECLARE
   v_role text;
   v_product public.products%ROWTYPE;
 BEGIN
-  SELECT lower(role::text)
+  -- Resolve the caller from the authenticated JWT, then verify the
+  -- matching LEOGO profile has an authorized staff role.
+  SELECT lower(p.role::text)
     INTO v_role
-  FROM public.profiles
-  WHERE id = auth.uid();
+  FROM public.profiles p
+  WHERE p.id = auth.uid()
+     OR lower(p.email) = lower(auth.jwt() ->> 'email')
+  LIMIT 1;
 
   IF v_role IS NULL OR v_role NOT IN ('admin','manager','supervisor','staff') THEN
     RAISE EXCEPTION 'Not authorized for product moderation';
