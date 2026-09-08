@@ -1,0 +1,39 @@
+name: LEOGO admin RPC page update
+
+on:
+  push:
+    paths:
+      - '.github/workflows/leogo-admin-rpc-page-update.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch admin approval to use secure RPC
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('admin_products.html')
+          s = p.read_text(encoding='utf-8')
+          old = "const q=await sb.from('products').update({approval_status:status,approved:status==='approved'}).eq('id',id).eq('approval_status','pending').select('id,approval_status,approved').maybeSingle();if(q.error){showPageMsg('Approval update failed: '+q.error.message);return}if(!q.data){showPageMsg('Approval update made no change. The product was not updated.');return}"
+          new = "const q=await sb.rpc('leogo_moderate_product',{p_product_id:id,p_status:status});if(q.error){showPageMsg('Approval update failed: '+q.error.message);return}if(!q.data){showPageMsg('Approval update made no change. The product was not updated.');return}"
+          if old not in s:
+              raise SystemExit('Expected approval update code was not found; no file change made.')
+          p.write_text(s.replace(old,new,1), encoding='utf-8')
+          PY
+
+      - name: Remove temporary workflow and commit
+        run: |
+          rm -f .github/workflows/leogo-admin-rpc-page-update.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin_products.html .github/workflows/leogo-admin-rpc-page-update.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'Use secure RPC for admin product approval'
+          git push
