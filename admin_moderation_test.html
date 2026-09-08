@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LEOGO Admin — Moderation Diagnostic</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+body{margin:0;font-family:Arial,sans-serif;background:#f5f7fb;color:#101828;padding:24px}.card{max-width:800px;margin:auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 8px 30px #07152f18}h1{color:#07152f}button{background:#07152f;color:#fff;border:0;border-radius:10px;padding:12px 18px;font-weight:700;cursor:pointer}.result{margin-top:18px;padding:16px;border-radius:10px;background:#f1f5f9;white-space:pre-wrap;word-break:break-word}.ok{color:#166534}.bad{color:#991b1b}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>LEOGO Moderation Diagnostic</h1>
+<p>This temporary page tests the exact authorization helper used by product approval. It does not modify any product.</p>
+<button onclick="runTest()">RUN AUTHORIZATION TEST</button>
+<div id="result" class="result">Waiting for test…</div>
+</div>
+<script>
+const SUPABASE_URL='https://twpiloiiigdghwcdjbnj.supabase.co';
+const SUPABASE_ANON_KEY='sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+async function runTest(){
+ const e=document.getElementById('result');
+ e.textContent='Running…';
+ const s=await sb.auth.getSession();
+ if(!s.data.session){e.innerHTML='<span class="bad">No authenticated browser session found. Please sign in to LEOGO Admin first.</span>';return}
+ const q=await sb.rpc('leogo_test_moderation_authorization');
+ if(q.error){e.innerHTML='<span class="bad">RPC ERROR: '+q.error.message+'</span>';return}
+ e.textContent=JSON.stringify(q.data,null,2);
+}
+runTest();
+</script>
+</body>
+</html>
