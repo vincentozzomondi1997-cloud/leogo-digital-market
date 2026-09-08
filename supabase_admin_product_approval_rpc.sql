@@ -1,4 +1,5 @@
 -- LEOGO: Secure admin/staff product approval RPC
+-- Uses the already-verified LEOGO admin helper for authorization.
 -- Run this once in Supabase SQL Editor.
 -- This does NOT modify existing seller/customer pages.
 
@@ -12,19 +13,11 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  v_role text;
   v_product public.products%ROWTYPE;
 BEGIN
-  -- Resolve the caller from the authenticated JWT, then verify the
-  -- matching LEOGO profile has an authorized staff role.
-  SELECT lower(p.role::text)
-    INTO v_role
-  FROM public.profiles p
-  WHERE p.id = auth.uid()
-     OR lower(p.email) = lower(auth.jwt() ->> 'email')
-  LIMIT 1;
-
-  IF v_role IS NULL OR v_role NOT IN ('admin','manager','supervisor','staff') THEN
+  -- The helper has already been verified from the authenticated browser
+  -- session to recognize the current LEOGO administrator.
+  IF NOT public.leogo_is_product_admin() THEN
     RAISE EXCEPTION 'Not authorized for product moderation';
   END IF;
 
