@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - 'seller_products.html'
+      - '.github/workflows/fix-seller-owner.yml'
 jobs:
   fix:
     runs-on: ubuntu-latest
