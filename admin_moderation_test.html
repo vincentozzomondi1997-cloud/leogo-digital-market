@@ -6,30 +6,38 @@
 <title>LEOGO Admin — Moderation Diagnostic</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-body{margin:0;font-family:Arial,sans-serif;background:#f5f7fb;color:#101828;padding:24px}.card{max-width:800px;margin:auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 8px 30px #07152f18}h1{color:#07152f}button{background:#07152f;color:#fff;border:0;border-radius:10px;padding:12px 18px;font-weight:700;cursor:pointer}.result{margin-top:18px;padding:16px;border-radius:10px;background:#f1f5f9;white-space:pre-wrap;word-break:break-word}.ok{color:#166534}.bad{color:#991b1b}
+body{margin:0;font-family:Arial,sans-serif;background:#f5f7fb;color:#101828;padding:24px}.card{max-width:800px;margin:auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 8px 30px #07152f18}h1{color:#07152f}button{background:#07152f;color:#fff;border:0;border-radius:10px;padding:12px 18px;font-weight:700;cursor:pointer}input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #d7dce4;border-radius:10px;margin:6px 0 12px;font:inherit}.result{margin-top:18px;padding:16px;border-radius:10px;background:#f1f5f9;white-space:pre-wrap;word-break:break-word}.ok{color:#166534}.bad{color:#991b1b}.hidden{display:none!important}.note{color:#667085}
 </style>
 </head>
 <body>
 <div class="card">
 <h1>LEOGO Moderation Diagnostic</h1>
-<p>This temporary page tests the exact authorization helper used by product approval. It does not modify any product.</p>
-<button onclick="runTest()">RUN AUTHORIZATION TEST</button>
-<div id="result" class="result">Waiting for test…</div>
+<p class="note">Temporary diagnostic only. It tests the exact authorization helper used by product approval and does not modify any product.</p>
+<div id="loginBox">
+<label>LEOGO Admin Email</label>
+<input id="email" type="email" autocomplete="username">
+<label>Password</label>
+<input id="password" type="password" autocomplete="current-password">
+<button id="loginBtn" onclick="loginAndTest()">SIGN IN & RUN TEST</button>
+</div>
+<div id="result" class="result">Please sign in to run the test.</div>
 </div>
 <script>
 const SUPABASE_URL='https://twpiloiiigdghwcdjbnj.supabase.co';
 const SUPABASE_ANON_KEY='sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX';
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
-async function runTest(){
+async function loginAndTest(){
  const e=document.getElementById('result');
- e.textContent='Running…';
- const s=await sb.auth.getSession();
- if(!s.data.session){e.innerHTML='<span class="bad">No authenticated browser session found. Please sign in to LEOGO Admin first.</span>';return}
+ const b=document.getElementById('loginBtn');
+ b.disabled=true;b.textContent='SIGNING IN…';e.textContent='Authenticating…';
+ const r=await sb.auth.signInWithPassword({email:document.getElementById('email').value.trim(),password:document.getElementById('password').value});
+ if(r.error){e.innerHTML='<span class="bad">SIGN-IN ERROR: '+r.error.message+'</span>';b.disabled=false;b.textContent='SIGN IN & RUN TEST';return}
  const q=await sb.rpc('leogo_test_moderation_authorization');
- if(q.error){e.innerHTML='<span class="bad">RPC ERROR: '+q.error.message+'</span>';return}
- e.textContent=JSON.stringify(q.data,null,2);
+ if(q.error){e.innerHTML='<span class="bad">RPC ERROR: '+q.error.message+'</span>';b.disabled=false;b.textContent='SIGN IN & RUN TEST';return}
+ e.innerHTML='<span class="ok">AUTHORIZATION TEST RESULT</span>\n\n'+JSON.stringify(q.data,null,2);
+ b.disabled=false;b.textContent='RUN TEST AGAIN';
 }
-runTest();
+document.getElementById('password').addEventListener('keydown',e=>{if(e.key==='Enter')loginAndTest()});
 </script>
 </body>
 </html>
