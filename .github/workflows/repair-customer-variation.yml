@@ -1,0 +1,37 @@
+name: Repair customer variation routing
+on:
+  push:
+    paths:
+      - '.github/workflows/repair-customer-variation.yml'
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch customer variation routing
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          old='const action=`handleProductAdd(${JSON.stringify(p).replace(/\'/g,"&#39;")})`;'
+          new='const action=`handleProductAddById(${JSON.stringify(String(p.id))})`;'
+          if old not in s:
+              raise SystemExit('Expected product action code was not found; no changes made.')
+          s=s.replace(old,new,1)
+          marker='async function handleProductAdd(p){'
+          if marker not in s:
+              raise SystemExit('Expected handleProductAdd function was not found; no changes made.')
+          helper='''async function handleProductAddById(productId){\n  const id=String(productId||\"\");\n  if(!id){toast(\"Product could not be identified\",\"error\");return;}\n  if(!sb){toast(\"Product options are unavailable right now\",\"error\");return;}\n  const {data:p,error:pe}=await sb.from(\"products\").select(\"id,name,description,price,image_url,category,available,seller_id\").eq(\"id\",id).maybeSingle();\n  if(pe||!p){console.error(\"LEOGO PRODUCT LOAD DEBUG:\",pe);toast(\"Could not load this product\",\"error\");return;}\n  const {data:vars,error:ve}=await sb.from(\"product_variations\").select(\"id,product_id,name,price,stock_qty,available,image_url\").eq(\"product_id\",id).eq(\"available\",true).gt(\"stock_qty\",0).order(\"created_at\",{ascending:true});\n  if(ve){console.error(\"LEOGO VARIATION CLICK DEBUG:\",ve);toast(\"Could not load product options\",\"error\");return;}\n  const availableVars=(vars||[]).filter(v=>Number(v.stock_qty||0)>0);\n  if(availableVars.length){chooseVariation({...p,variations:availableVars});return;}\n  addToCart(p);\n}\n'''
+          s=s.replace(marker,helper+marker,1)
+          p.write_text(s)
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Fix customer variation selection routing'
+          git rm .github/workflows/repair-customer-variation.yml
+          git commit -m 'Remove temporary variation repair workflow'
+          git push
