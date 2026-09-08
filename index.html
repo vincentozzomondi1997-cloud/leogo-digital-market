@@ -303,7 +303,7 @@ function productCard(p){
   const img=p.image_url ? `<img src="${escapeHtml(p.image_url)}" alt="">` : `<div class="placeholder">🛍️</div>`;
   const hasVars=Array.isArray(p.variations)&&p.variations.length>0;
   const shownPrice=hasVars?Math.min(...p.variations.map(v=>Number(v.price||0))):Number(p.price||0);
-  const action=`handleProductAdd(${JSON.stringify(p).replace(/'/g,"&#39;")})`;
+  const action=`handleProductAddById(${JSON.stringify(String(p.id))})`;
   return `<article class="product"><div class="product-img">${img}</div><div class="product-body"><h3>${escapeHtml(p.name)}</h3><div class="price">${hasVars?"From ":""}${money(shownPrice)}</div><div class="product-meta">${escapeHtml(p.category||"Marketplace")} • ${p.available===false?"Unavailable":hasVars?"Options available":"Available"}</div><div class="product-actions"><button class="btn light" onclick='viewProduct(${JSON.stringify(p).replace(/'/g,"&#39;")})'>View</button><button class="btn orange" ${p.available===false?"disabled":""} onclick='${action}'>${hasVars?"Choose options":"Add"}</button></div></div></article>`;
 }
 async function loadProducts(category=null, query=""){
@@ -508,6 +508,18 @@ async function viewProduct(p){
   if(sb) p=(await attachVariationInfo([p]))[0]||p;
   if(Array.isArray(p.variations)&&p.variations.length){chooseVariation(p);return;}
   openModal(`<div class="modal-head"><h2>${escapeHtml(p.name)}</h2><button class="close" onclick="closeModal()">✕</button></div>${p.image_url?`<img src="${escapeHtml(p.image_url)}" style="width:100%;height:220px;object-fit:cover;border-radius:15px">`:`<div style="height:180px;background:#eef2f7;border-radius:15px;display:grid;place-items:center;font-size:70px">🛍️</div>`}<p class="muted">${escapeHtml(p.description||"No description provided.")}</p><h2>${money(p.price)}</h2><button class="btn orange" style="width:100%" onclick='addToCart(${JSON.stringify(p).replace(/'/g,"&#39;")});closeModal()'>Add to Cart</button>`);
+}
+async function handleProductAddById(productId){
+  const id=String(productId||"");
+  if(!id){toast("Product could not be identified","error");return;}
+  if(!sb){toast("Product options are unavailable right now","error");return;}
+  const {data:p,error:pe}=await sb.from("products").select("id,name,description,price,image_url,category,available,seller_id").eq("id",id).maybeSingle();
+  if(pe||!p){console.error("LEOGO PRODUCT LOAD DEBUG:",pe);toast("Could not load this product","error");return;}
+  const {data:vars,error:ve}=await sb.from("product_variations").select("id,product_id,name,price,stock_qty,available,image_url").eq("product_id",id).eq("available",true).gt("stock_qty",0).order("created_at",{ascending:true});
+  if(ve){console.error("LEOGO VARIATION CLICK DEBUG:",ve);toast("Could not load product options","error");return;}
+  const availableVars=(vars||[]).filter(v=>Number(v.stock_qty||0)>0);
+  if(availableVars.length){chooseVariation({...p,variations:availableVars});return;}
+  addToCart(p);
 }
 async function handleProductAdd(p){
   if(!p) return;
