@@ -37,25 +37,7 @@
       });
     };
   }
-  function installOrdersNavigationFix(){
-    if(window.__leogoOrdersNavigationFixed)return;
-    if(typeof window.go!=='function')return;
-    var originalGo=window.go;
-    window.go=function(page){
-      if(page==='orders'){
-        document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
-        document.querySelectorAll('[data-page]').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-page')==='orders');});
-        var section=document.getElementById('page-orders');
-        if(section)section.classList.add('active');
-        if(typeof window.loadOrders==='function')window.loadOrders();
-        window.scrollTo({top:0,behavior:'smooth'});
-        return;
-      }
-      return originalGo.apply(this,arguments);
-    };
-    window.__leogoOrdersNavigationFixed=true;
-  }
-  function boot(){installLogin();installOrdersNavigationFix();}
+  function boot(){installLogin();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
-  var timer=setInterval(function(){boot();if(window.__leogoOrdersNavigationFixed&&typeof window.login==='function')clearInterval(timer);},100);
+  var timer=setInterval(function(){boot();if(typeof window.login==='function')clearInterval(timer);},100);
 })();
