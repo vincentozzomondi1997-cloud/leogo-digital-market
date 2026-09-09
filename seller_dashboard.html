@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LEOGO — Seller Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#f5f7fb;color:#101828}.top{background:#07152f;color:#fff;padding:16px 20px}.topbar{max-width:1100px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:12px}.brand{font-size:22px;font-weight:900}.brand span{color:#ff7a00}.top a{color:#fff;text-decoration:none;background:#20365f;padding:9px 12px;border-radius:8px}.wrap{max-width:1100px;margin:24px auto;padding:0 16px}.welcome{margin-bottom:18px}.muted{color:#667085}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin:18px 0}.card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:18px}.card span{display:block;color:#667085;font-size:13px}.card b{display:block;font-size:25px;margin-top:7px}.panel{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:18px;margin-bottom:18px}.panel h2{margin:0 0 12px;color:#07152f}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:700px}th,td{text-align:left;padding:12px;border-bottom:1px solid #eef0f4;font-size:14px}th{background:#f9fafb;font-size:12px;color:#667085}.amount{font-weight:800}.pill{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;text-transform:capitalize}.pending{background:#fff4cc}.processing{background:#e8eefc}.settled{background:#dcfce7;color:#166534}.failed{background:#fee2e2;color:#991b1b}.notice{background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:13px;font-size:14px}.error{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:10px;padding:12px;margin-bottom:14px}.empty{text-align:center;padding:30px;color:#667085}.btn{border:0;border-radius:9px;padding:10px 13px;background:#07152f;color:#fff;font-weight:800;cursor:pointer}@media(max-width:800px){.cards{grid-template-columns:repeat(2,1fr)}}@media(max-width:520px){.cards{grid-template-columns:1fr 1fr}.card{padding:13px}.card b{font-size:20px}.topbar{align-items:flex-start}.brand{font-size:19px}}
+</style>
+</head>
+<body>
+<div class="top"><div class="topbar"><div class="brand">LEO<span>GO</span> Seller Dashboard</div><a href="index.html">← Marketplace</a></div></div>
+<main class="wrap">
+<div class="welcome"><h1 id="sellerName">Seller Dashboard</h1><div id="businessName" class="muted">Loading your business…</div></div>
+<div id="error"></div>
+<div class="cards">
+<div class="card"><span>Today's Sales</span><b id="today">KSh 0.00</b></div>
+<div class="card"><span>Pending Settlement</span><b id="pending">KSh 0.00</b></div>
+<div class="card"><span>Processing</span><b id="processing">KSh 0.00</b></div>
+<div class="card"><span>Total Settled</span><b id="settled">KSh 0.00</b></div>
+</div>
+<div class="notice">Your seller earnings are calculated from the products you actually sold: <b>quantity × selling price</b>. LEOGO does not deduct its platform fee from your product earnings in this seller settlement balance. Example: 10 sodas × KSh 40 = <b>KSh 400</b>.</div>
+<div class="panel"><h2>Recent Seller Sales & Settlements</h2><div class="table-wrap"><table><thead><tr><th>Date</th><th>Order</th><th>Products Sold</th><th>Your Earnings</th><th>Status</th></tr></thead><tbody id="rows"><tr><td colspan="5" class="empty">Loading…</td></tr></tbody></table></div></div>
+<div class="panel"><h2>Settlement Account</h2><div id="account" class="muted">Loading…</div></div>
+<button class="btn" onclick="loadDashboard()">↻ Refresh</button>
+</main>
+<script>
+const SUPABASE_URL='https://twpiloiiigdghwcdjbnj.supabase.co';const SUPABASE_KEY='sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX';const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const money=n=>'KSh '+Number(n||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
+function esc(v){return String(v??'').replace(/[&<>\'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function err(t){document.getElementById('error').innerHTML=t?'<div class="error">'+esc(t)+'</div>':''}
+async function loadDashboard(){
+ err('');
+ const {data:{session}}=await sb.auth.getSession();
+ if(!session){location.href='index.html';return}
+ const {data:seller,error:se}=await sb.from('sellers').select('id,business_name,owner_name,phone,auth_user_id').eq('auth_user_id',session.user.id).maybeSingle();
+ if(se||!seller){err(se?.message||'No seller account was found for this login.');return}
+ document.getElementById('sellerName').textContent='Hello, '+(seller.owner_name||'Seller');document.getElementById('businessName').textContent=seller.business_name||'Your LEOGO business';
+ const {data:sets,error:e}=await sb.from('seller_settlements').select('id,order_id,gross_amount,status,settled_at,created_at').eq('seller_id',seller.id).order('created_at',{ascending:false}).limit(200);
+ if(e){err(e.message);return}
+ const list=sets||[], todayKey=new Date().toLocaleDateString('en-CA');let today=0,pending=0,processing=0,settled=0;
+ list.forEach(x=>{const amount=Number(x.gross_amount||0);if(x.created_at&&new Date(x.created_at).toLocaleDateString('en-CA')===todayKey)today+=amount;if(x.status==='pending')pending+=amount;if(x.status==='processing')processing+=amount;if(x.status==='settled')settled+=amount});
+ document.getElementById('today').textContent=money(today);document.getElementById('pending').textContent=money(pending);document.getElementById('processing').textContent=money(processing);document.getElementById('settled').textContent=money(settled);
+ const orderIds=[...new Set(list.map(x=>x.order_id).filter(Boolean))];let itemMap=new Map();
+ if(orderIds.length){const {data:items,error:ie}=await sb.from('order_items').select('order_id,product_name,quantity,unit_price,line_total').in('order_id',orderIds);if(!ie){(items||[]).forEach(i=>{if(!itemMap.has(i.order_id))itemMap.set(i.order_id,[]);itemMap.get(i.order_id).push(i)})}}
+ document.getElementById('rows').innerHTML=list.length?list.map(x=>{const items=itemMap.get(x.order_id)||[];const products=items.length?items.map(i=>esc((i.quantity||0)+' × '+(i.product_name||'Product')+' @ KSh '+Number(i.unit_price||0).toFixed(2))).join('<br>'):'Seller sale';return '<tr><td>'+esc(new Date(x.created_at).toLocaleString('en-KE'))+'</td><td>'+esc(x.order_id||'')+'</td><td>'+products+'</td><td class="amount">'+money(x.gross_amount)+'</td><td><span class="pill '+esc(x.status)+'">'+esc(x.status)+'</span></td></tr>'}).join(''):'<tr><td colspan="5" class="empty">No seller sales have been recorded yet.</td></tr>';
+ const {data:a}=await sb.from('settlement_accounts').select('preferred_method,mpesa_number,airtel_number,bank_name,bank_account_number,status').eq('user_id',session.user.id).maybeSingle();
+ if(!a){document.getElementById('account').textContent='No settlement account found.'}else{let text=a.preferred_method==='mpesa'?'M-Pesa: '+(a.mpesa_number||'Not provided'):a.preferred_method==='airtel_money'?'Airtel Money: '+(a.airtel_number||'Not provided'):a.preferred_method==='bank'?'Bank: '+(a.bank_name||'')+' / '+(a.bank_account_number||''):'Account on file';document.getElementById('account').innerHTML='<b>'+esc(text)+'</b> — Status: <span class="pill '+(a.status==='verified'?'settled':'pending')+'">'+esc(a.status||'pending')+'</span>'}
+}
+sb.auth.onAuthStateChange(()=>setTimeout(loadDashboard,100));loadDashboard();
+</script>
+</body></html>
