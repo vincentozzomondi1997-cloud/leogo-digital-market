@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07152f">
+<title>LEOGO Account Recovery</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--n:#07152f;--o:#ff7a00;--bg:#f5f7fb;--line:#e5e7eb;--muted:#667085;--green:#166534;--red:#991b1b}*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial;background:var(--bg);color:#101828}.top{background:var(--n);color:#fff;padding:18px 0}.wrap{max-width:620px;margin:auto;padding:0 16px}.brand{font-weight:900;font-size:24px}.brand span{color:var(--o)}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:24px;margin:24px 0;box-shadow:0 10px 30px #07152f12}h1,h2{color:var(--n)}.muted{color:var(--muted)}.notice,.success,.error{padding:12px;border-radius:10px;margin:14px 0;font-size:14px}.notice{background:#fff7ed;border:1px solid #fed7aa}.success{background:#ecfdf3;color:var(--green)}.error{background:#fef2f2;color:var(--red)}label{display:block;font-weight:800;font-size:13px;margin:14px 0 6px}input{width:100%;padding:12px;border:1px solid #d7dce4;border-radius:10px;font:inherit}button{border:0;border-radius:10px;padding:13px 16px;font-weight:900;cursor:pointer;width:100%;margin-top:10px}.primary{background:var(--n);color:#fff}.orange{background:var(--o);color:#fff}.light{background:#eef3fb;color:var(--n)}.hidden{display:none!important}.back{text-align:center;margin-top:16px}.back a{color:var(--n);font-weight:800;text-decoration:none}@media(max-width:650px){.card{padding:18px}}
+</style>
+</head>
+<body>
+<div class="top"><div class="wrap"><div class="brand">LEO<span>GO</span> DIGITAL SERVICES</div><div style="font-size:13px;margin-top:4px">Account Recovery & Email Verification</div></div></div>
+<main class="wrap"><div class="card">
+<h1 id="title">Account Help</h1>
+<p class="muted">Use this page if your LEOGO verification email was not received or if you forgot your password / 6-digit PIN.</p>
+<div id="modeNotice" class="notice">Enter the email address connected to your LEOGO account.</div>
+<div id="normalMode">
+<label>Email address</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com">
+<button class="orange" onclick="resendVerification()">RESEND VERIFICATION EMAIL</button>
+<button class="primary" onclick="sendReset()">RESET PASSWORD / PIN</button>
+</div>
+<div id="resetMode" class="hidden">
+<div class="notice">Your reset link has been accepted. Choose a new password / 6-digit PIN for your LEOGO account.</div>
+<label>New password / PIN</label><input id="newPassword" type="password" inputmode="numeric" minlength="6" maxlength="72" placeholder="Use your LEOGO password/PIN">
+<label>Confirm password / PIN</label><input id="confirmPassword" type="password" inputmode="numeric" minlength="6" maxlength="72" placeholder="Repeat it">
+<button class="primary" onclick="updatePassword()">SAVE NEW PASSWORD / PIN</button>
+</div>
+<div id="msg"></div>
+<div class="back"><a href="index.html">← Back to LEOGO</a></div>
+</div></main>
+<script>
+const SUPABASE_URL='https://twpiloiiigdghwcdjbnj.supabase.co';
+const SUPABASE_ANON_KEY='sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX';
+const SITE_URL='https://vincentozzomondi1997-cloud.github.io/leogo-digital-market/';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+function show(text,ok=false){const e=document.getElementById('msg');e.className=ok?'success':'error';e.textContent=text}
+function emailValue(){return document.getElementById('email').value.trim().toLowerCase()}
+async function resendVerification(){
+  const email=emailValue();
+  if(!email){show('Enter the email address connected to your LEOGO account.');return}
+  const btn=event?.currentTarget; if(btn)btn.disabled=true;
+  try{
+    const {error}=await sb.auth.resend({type:'signup',email});
+    if(error)throw error;
+    show('Verification email requested. Check your inbox and spam/junk folder. If the account is already verified, you do not need another verification email.',true);
+  }catch(err){show(err?.message||String(err))}
+  finally{if(btn)btn.disabled=false}
+}
+async function sendReset(){
+  const email=emailValue();
+  if(!email){show('Enter the email address connected to your LEOGO account.');return}
+  const btn=event?.currentTarget;if(btn)btn.disabled=true;
+  try{
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:SITE_URL+'account_recovery.html?mode=reset'});
+    if(error)throw error;
+    show('If that email belongs to a LEOGO account, a password/PIN reset link has been sent. Check your inbox and spam/junk folder.',true);
+  }catch(err){show(err?.message||String(err))}
+  finally{if(btn)btn.disabled=false}
+}
+async function updatePassword(){
+  const p=document.getElementById('newPassword').value;
+  const c=document.getElementById('confirmPassword').value;
+  if(!p||p!==c){show('The two passwords/PINs do not match.');return}
+  if(p.length<6){show('Your password/PIN must contain at least 6 characters.');return}
+  const btn=event?.currentTarget;if(btn)btn.disabled=true;
+  try{
+    const {error}=await sb.auth.updateUser({password:p});
+    if(error)throw error;
+    show('Your LEOGO password/PIN has been updated successfully. You can now return to LEOGO and log in.',true);
+    document.getElementById('newPassword').value='';document.getElementById('confirmPassword').value='';
+  }catch(err){show(err?.message||String(err))}
+  finally{if(btn)btn.disabled=false}
+}
+function checkResetMode(){
+  const mode=new URLSearchParams(location.search).get('mode');
+  if(mode!=='reset')return;
+  document.getElementById('title').textContent='Create New Password / PIN';
+  document.getElementById('normalMode').classList.add('hidden');
+  document.getElementById('resetMode').classList.remove('hidden');
+  document.getElementById('modeNotice').textContent='Your email reset link brought you here. Set a new password/PIN below.';
+}
+sb.auth.onAuthStateChange((event,session)=>{if(event==='PASSWORD_RECOVERY'||new URLSearchParams(location.search).get('mode')==='reset')checkResetMode()});
+checkResetMode();
+</script>
+</body>
+</html>
