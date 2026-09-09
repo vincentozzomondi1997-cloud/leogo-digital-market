@@ -35,7 +35,7 @@
   function customerStats(c){
     var os=orders.filter(function(o){return o.customer_id===c.id;});
     var total=os.reduce(function(sum,o){return sum+Number(o.total_amount||0);},0);
-    return {count:os.length,total:total,last:os.length?os.slice().sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at);})[0]:null};
+    return {count:os.length,total:total};
   }
   function render(){
     var area=document.getElementById('customersArea');if(!area)return;
@@ -43,27 +43,31 @@
     var active=customers.filter(function(c){return String(c.status||'active').toLowerCase()==='active';}).length;
     var suspended=customers.filter(function(c){return String(c.status||'').toLowerCase()==='suspended';}).length;
     var totalSpend=orders.reduce(function(s,o){return s+Number(o.total_amount||0);},0);
-    var html='<div class="cards" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:14px">'+
-      '<div class="stat"><span class="muted">Customers</span><b>'+customers.length+'</b></div>'+\
-      '<div class="stat"><span class="muted">Active</span><b>'+active+'</b></div>'+\
-      '<div class="stat"><span class="muted">Suspended</span><b>'+suspended+'</b></div>'+\
-      '<div class="stat"><span class="muted">Customer Order Value</span><b style="font-size:19px">'+money(totalSpend)+'</b></div></div>'+
-      '<div class="toolbar" style="margin-top:14px"><div class="filters">'+
-      '<button id="cf-all" class="'+(currentFilter==='all'?'orange':'light')+'" onclick="setCustomerFilter(\'all\')">ALL</button>'+\
-      '<button id="cf-active" class="'+(currentFilter==='active'?'orange':'light')+'" onclick="setCustomerFilter(\'active\')">ACTIVE</button>'+\
-      '<button id="cf-suspended" class="'+(currentFilter==='suspended'?'orange':'light')+'" onclick="setCustomerFilter(\'suspended\')">SUSPENDED</button>'+\
-      '</div><input class="search" id="customerSearch" placeholder="Search name, email, phone..." value="'+esc(currentSearch)+'" oninput="setCustomerSearch(this.value)"></div>';
+    var html='<div class="cards" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:14px">'
+      +'<div class="stat"><span class="muted">Customers</span><b>'+customers.length+'</b></div>'
+      +'<div class="stat"><span class="muted">Active</span><b>'+active+'</b></div>'
+      +'<div class="stat"><span class="muted">Suspended</span><b>'+suspended+'</b></div>'
+      +'<div class="stat"><span class="muted">Customer Order Value</span><b style="font-size:19px">'+money(totalSpend)+'</b></div></div>'
+      +'<div class="toolbar" style="margin-top:14px"><div class="filters">'
+      +'<button class="'+(currentFilter==='all'?'orange':'light')+'" onclick="setCustomerFilter(\'all\')">ALL</button>'
+      +'<button class="'+(currentFilter==='active'?'orange':'light')+'" onclick="setCustomerFilter(\'active\')">ACTIVE</button>'
+      +'<button class="'+(currentFilter==='suspended'?'orange':'light')+'" onclick="setCustomerFilter(\'suspended\')">SUSPENDED</button>'
+      +'</div><input class="search" id="customerSearch" placeholder="Search name, email, phone..." value="'+esc(currentSearch)+'" oninput="setCustomerSearch(this.value)"></div>';
     if(!list.length){area.innerHTML=html+'<div class="empty">No customers found.</div>';return;}
     html+='<div class="table-wrap"><table class="table"><thead><tr><th>Customer</th><th>Contact</th><th>Location</th><th>Orders</th><th>Total Spend</th><th>Status</th><th>Action</th></tr></thead><tbody>';
     list.forEach(function(c){
       var st=customerStats(c);
-      html+='<tr><td><b>'+esc(c.full_name||'Unnamed customer')+'</b><br><span class="muted">'+esc(c.username||'')+'</span></td>'+\
-        '<td>'+esc(c.phone||'')+'<br>'+esc(c.email||'')+'</td>'+\
-        '<td>'+esc(c.location||'')+'</td>'+\
-        '<td>'+st.count+'</td>'+\
-        '<td><b>'+money(st.total)+'</b></td>'+\
-        '<td><span class="pill '+statusClass(c.status)+'">'+esc(c.status||'active')+'</span></td>'+\
-        '<td><div class="actions"><button class="blue" onclick="viewCustomer(\''+esc(c.id)+'\')">VIEW DETAILS</button>'+(String(c.status||'active').toLowerCase()==='suspended'?'<button class="approve" onclick="changeCustomerStatus(\''+esc(c.id)+'\',\'active\')">ACTIVATE</button>':'<button class="danger" onclick="changeCustomerStatus(\''+esc(c.id)+'\',\'suspended\')">SUSPEND</button>')+'</div></td></tr>';
+      html+='<tr><td><b>'+esc(c.full_name||'Unnamed customer')+'</b><br><span class="muted">'+esc(c.username||'')+'</span></td>'
+        +'<td>'+esc(c.phone||'')+'<br>'+esc(c.email||'')+'</td>'
+        +'<td>'+esc(c.location||'')+'</td>'
+        +'<td>'+st.count+'</td>'
+        +'<td><b>'+money(st.total)+'</b></td>'
+        +'<td><span class="pill '+statusClass(c.status)+'">'+esc(c.status||'active')+'</span></td>'
+        +'<td><div class="actions"><button class="blue" onclick="viewCustomer(\''+esc(c.id)+'\')">VIEW DETAILS</button>'
+        +(String(c.status||'active').toLowerCase()==='suspended'
+          ?'<button class="approve" onclick="changeCustomerStatus(\''+esc(c.id)+'\',\'active\')">ACTIVATE</button>'
+          :'<button class="danger" onclick="changeCustomerStatus(\''+esc(c.id)+'\',\'suspended\')">SUSPEND</button>')
+        +'</div></td></tr>';
     });
     html+='</tbody></table></div>';
     area.innerHTML=html;
@@ -91,26 +95,33 @@
   }
 
   function setCustomerFilter(f){currentFilter=f;render();}
-  function setCustomerSearch(v){currentSearch=v||'';render();var el=document.getElementById('customerSearch');if(el){el.focus();try{el.setSelectionRange(el.value.length,el.value.length);}catch(_){}}}
+  function setCustomerSearch(v){
+    currentSearch=v||'';
+    render();
+    var el=document.getElementById('customerSearch');
+    if(el){el.focus();try{el.setSelectionRange(el.value.length,el.value.length);}catch(_){}}
+  }
 
   async function viewCustomer(id){
     var c=customers.find(function(x){return x.id===id;});
     if(!c){alert('Customer not found. Please refresh the customer list.');return;}
     var st=customerStats(c),os=orders.filter(function(o){return o.customer_id===id;}).sort(function(a,b){return new Date(b.created_at)-new Date(a.created_at);});
-    var body='<div class="detail">'+
-      '<div><b>Full Name</b>'+esc(c.full_name||'')+'</div>'+\
-      '<div><b>Username</b>'+esc(c.username||'')+'</div>'+\
-      '<div><b>Email</b>'+esc(c.email||'')+'</div>'+\
-      '<div><b>Phone</b>'+esc(c.phone||'')+'</div>'+\
-      '<div><b>Location</b>'+esc(c.location||'')+'</div>'+\
-      '<div><b>Status</b>'+esc(c.status||'active')+'</div>'+\
-      '<div><b>Customer ID</b>'+esc(c.id)+'</div>'+\
-      '<div><b>Registered</b>'+esc(c.created_at?new Date(c.created_at).toLocaleString():'')+'</div>'+\
-      '<div><b>Total Orders</b>'+st.count+'</div>'+\
-      '<div><b>Total Spend</b>'+money(st.total)+'</div></div>';
+    var body='<div class="detail">'
+      +'<div><b>Full Name</b>'+esc(c.full_name||'')+'</div>'
+      +'<div><b>Username</b>'+esc(c.username||'')+'</div>'
+      +'<div><b>Email</b>'+esc(c.email||'')+'</div>'
+      +'<div><b>Phone</b>'+esc(c.phone||'')+'</div>'
+      +'<div><b>Location</b>'+esc(c.location||'')+'</div>'
+      +'<div><b>Status</b>'+esc(c.status||'active')+'</div>'
+      +'<div><b>Customer ID</b>'+esc(c.id)+'</div>'
+      +'<div><b>Registered</b>'+esc(c.created_at?new Date(c.created_at).toLocaleString():'')+'</div>'
+      +'<div><b>Total Orders</b>'+st.count+'</div>'
+      +'<div><b>Total Spend</b>'+money(st.total)+'</div></div>';
     body+='<div class="card" style="margin-top:14px"><h3 style="margin-top:0">Order History ('+os.length+')</h3>';
     if(!os.length)body+='<div class="muted">This customer has not placed any orders.</div>';
-    else body+='<div class="table-wrap"><table class="table" style="min-width:700px"><thead><tr><th>Order</th><th>Date</th><th>Total</th><th>Payment</th><th>Status</th><th>Delivery</th></tr></thead><tbody>'+os.map(function(o){return '<tr><td><b>#'+esc(String(o.id).slice(0,8))+'</b></td><td>'+esc(new Date(o.created_at).toLocaleString())+'</td><td>'+money(o.total_amount)+'</td><td>'+esc(o.payment_method||'')+'<br>'+esc(o.payment_status||'')+'</td><td>'+esc(o.status||'')+'</td><td>'+esc(o.delivery_location||'')+'</td></tr>';}).join('')+'</tbody></table></div>';
+    else body+='<div class="table-wrap"><table class="table" style="min-width:700px"><thead><tr><th>Order</th><th>Date</th><th>Total</th><th>Payment</th><th>Status</th><th>Delivery</th></tr></thead><tbody>'
+      +os.map(function(o){return '<tr><td><b>#'+esc(String(o.id).slice(0,8))+'</b></td><td>'+esc(new Date(o.created_at).toLocaleString())+'</td><td>'+money(o.total_amount)+'</td><td>'+esc(o.payment_method||'')+'<br>'+esc(o.payment_status||'')+'</td><td>'+esc(o.status||'')+'</td><td>'+esc(o.delivery_location||'')+'</td></tr>';}).join('')
+      +'</tbody></table></div>';
     body+='</div>';
     body+='<div class="actions" style="margin-top:14px"><button class="'+(String(c.status||'active').toLowerCase()==='suspended'?'approve':'danger')+'" onclick="changeCustomerStatus(\''+esc(c.id)+'\',\''+(String(c.status||'active').toLowerCase()==='suspended'?'active':'suspended')+'\');closeModal()">'+(String(c.status||'active').toLowerCase()==='suspended'?'ACTIVATE CUSTOMER':'SUSPEND CUSTOMER')+'</button></div>';
     showModal('Customer Details',body);
