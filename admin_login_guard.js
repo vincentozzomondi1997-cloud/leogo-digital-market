@@ -40,3 +40,4 @@
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
+// LEOGO admin login recovery guard: force workflow to inject this script into admin.html.
