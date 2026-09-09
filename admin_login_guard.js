@@ -112,7 +112,16 @@
     window.viewProduct=viewProductEnhanced;window.viewSeller=viewSellerEnhanced;window.openSellerDocument=openSellerDocument;window.viewOrder=viewOrderEnhanced;
     if(typeof window.updateOrderStatus!=='function'){window.updateOrderStatus=async function(id,status){var q=await getSB().from('orders').update({status:status,updated_at:new Date().toISOString()}).eq('id',id).select('id,status').maybeSingle();if(q.error){alert('Order status update failed: '+q.error.message);return false;}if(!q.data){alert('No order was updated. Check Admin permissions.');return false;}if(typeof window.loadOrders==='function')await window.loadOrders();return true;};}
   }
-  function boot(){installLogin();installNavigationFallback();installEnhancedManagement();installModalClose();}
+  function loadCustomerModule(){
+    if(window.__leogoCustomerModuleLoaded||document.querySelector('script[data-leogo-customer-module]'))return;
+    var s=document.createElement('script');
+    s.src='customer_management.js';
+    s.setAttribute('data-leogo-customer-module','1');
+    s.onload=function(){window.__leogoCustomerModuleLoaded=true;};
+    s.onerror=function(){console.error('LEOGO customer management module failed to load. Existing admin functions remain unchanged.');};
+    document.head.appendChild(s);
+  }
+  function boot(){installLogin();installNavigationFallback();installEnhancedManagement();installModalClose();loadCustomerModule();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
   var timer=setInterval(function(){boot();if(typeof window.login==='function'&&typeof window.go==='function')clearInterval(timer);},100);
 })();
