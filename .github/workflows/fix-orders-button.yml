@@ -1,0 +1,49 @@
+name: Fix LEOGO admin order navigation
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/fix-orders-button.yml
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch order navigation
+        run: |
+          cat >> admin_login_guard.js <<'EOF'
+
+// LEOGO ADMIN ORDERS BUTTON FIX — navigation only; leaves other admin functions unchanged.
+(function(){
+  function installOrdersNavigationFix(){
+    if(window.__leogoOrdersNavigationFixed)return;
+    if(typeof window.go!=='function')return;
+    const originalGo=window.go;
+    window.go=function(page){
+      if(page==='orders'){
+        document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+        document.querySelectorAll('[data-page]').forEach(function(b){b.classList.toggle('active',b.getAttribute('data-page')==='orders');});
+        const section=document.getElementById('page-orders');
+        if(section)section.classList.add('active');
+        if(typeof window.loadOrders==='function')window.loadOrders();
+        window.scrollTo({top:0,behavior:'smooth'});
+        return;
+      }
+      return originalGo.apply(this,arguments);
+    };
+    window.__leogoOrdersNavigationFixed=true;
+  }
+  const timer=setInterval(function(){
+    installOrdersNavigationFix();
+    if(window.__leogoOrdersNavigationFixed)clearInterval(timer);
+  },100);
+})();
+EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin_login_guard.js
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: repair admin order navigation"
+          git push
