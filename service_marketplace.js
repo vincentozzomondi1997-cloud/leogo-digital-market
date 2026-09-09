@@ -30,23 +30,24 @@
     const section=inject(), grid=document.getElementById('leogoServiceGrid');
     if(!grid) return;
     grid.innerHTML='<div class="empty">Loading services…</div>';
-    const q=await sb.from('services').select('id,provider_id,name,category,description,price,recommended').eq('approved',true).eq('available',true).order('recommended',{ascending:false}).order('created_at',{ascending:false});
+    const q=await sb.rpc('get_public_service_marketplace');
     if(q.error){grid.innerHTML=`<div class="empty">Unable to load services right now.</div>`;return;}
-    const services=q.data||[];
+    const services=(q.data||[]).map(s=>({
+      id:s.service_id,
+      provider_id:s.provider_id,
+      name:s.service_name,
+      category:s.category,
+      description:s.description,
+      price:s.price,
+      recommended:s.recommended,
+      provider_name:s.provider_name,
+      provider_location:s.provider_location
+    }));
     if(!services.length){grid.innerHTML='<div class="empty">No services are currently available. Please check again soon.</div>';return;}
 
-    const providerIds=[...new Set(services.map(x=>x.provider_id).filter(Boolean))];
-    let providers=[];
-    if(providerIds.length){
-      const p=await sb.from('profiles').select('id,full_name,location').in('id',providerIds);
-      if(!p.error) providers=p.data||[];
-    }
-    const pm=new Map(providers.map(p=>[p.id,p]));
-
     grid.innerHTML=services.map(s=>{
-      const p=pm.get(s.provider_id)||{};
-      const provider=p.full_name||'LEOGO Service Provider';
-      const location=p.location||'Local provider';
+      const provider=s.provider_name||'LEOGO Service Provider';
+      const location=s.provider_location||'Local provider';
       return `<article class="product"><div class="product-img"><div class="placeholder">🛠️</div></div><div class="product-body">
         <div class="pill orange">${esc(s.category)}</div>
         <h3 style="margin-top:8px">${esc(s.name)}</h3>
