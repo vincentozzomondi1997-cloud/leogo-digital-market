@@ -1,0 +1,186 @@
+name: Apply LEOGO order management
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/leogo-order-management.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch admin and customer order flows
+        env:
+          ORDER_SCRIPT: |
+            <script>
+            /* LEOGO ORDER MANAGEMENT V2: customer orders, delivery pricing and rider assignment. */
+            (function(){
+              const orderStatuses=['Order Placed','Confirmed','Preparing','Ready for Pickup','Out for Delivery','Delivered','Cancelled'];
+              let orderRiders=[];
+              const oe=v=>typeof esc==='function'?esc(v==null?'':String(v)):String(v==null?'':v).replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]));
+              const om=v=>typeof money==='function'?money(v):('KSh '+Number(v||0).toLocaleString());
+              const op=(v,c)=>typeof pill==='function'?pill(v,c):'<span class="pill '+(c||'')+'">'+oe(v)+'</span>';
+              const activeStaffRoles=['rider','driver','delivery','delivery_rider','logistics','transport'];
+              async function loadRiders(){
+                const q=await sb.from('profiles').select('id,full_name,phone,email,role,status').order('full_name');
+                if(q.error){orderRiders=[];return q.error}
+                orderRiders=(q.data||[]).filter(x=>x.status==='active' && activeStaffRoles.includes(String(x.role||'').toLowerCase()));
+                return null;
+              }
+              window.loadOrders=async function(){
+                const a=document.getElementById('ordersArea'); if(!a)return;
+                a.innerHTML='<div class="empty">Loading customer orders…</div>';
+                const [oq]=await Promise.all([sb.from('orders').select('*').order('created_at',{ascending:false}).limit(300),loadRiders()]);
+                if(oq.error){a.innerHTML='<div class="msg error">Could not load customer orders: '+oe(oq.error.message)+'</div>';return;}
+                orders=oq.data||[]; window.renderOrders();
+              };
+              window.renderOrders=function(){
+                const a=document.getElementById('ordersArea'); if(!a)return;
+                const list=(orders||[]).filter(o=>orderFilter==='all'?true:orderFilter==='delivered'?String(o.status||'').toLowerCase()==='delivered':orderFilter==='cancelled'?String(o.status||'').toLowerCase()==='cancelled':!['delivered','cancelled'].includes(String(o.status||'').toLowerCase()));
+                if(!list.length){a.innerHTML='<div class="empty">No '+oe(orderFilter)+' customer orders found.</div>';return;}
+                a.innerHTML='<div class="notice"><b>Order Management</b><br>Review customer orders, set delivery pricing when a quote is requested, assign an available rider/driver, and move each order through its delivery status.</div><div class="table-wrap"><table class="table"><thead><tr><th>Order</th><th>Customer</th><th>Delivery</th><th>Total</th><th>Payment</th><th>Pricing</th><th>Assigned Rider</th><th>Status / Action</th></tr></thead><tbody>'+list.map(o=>{
+                  const st=String(o.status||'Order Placed');
+                  const rider=orderRiders.find(r=>r.id===o.assigned_rider_id);
+                  const needsQuote=String(o.delivery_pricing_status||'fixed').toLowerCase()==='requested';
+                  return '<tr><td><b>#'+oe(String(o.id).slice(0,8))+'</b><br><span class="muted">'+new Date(o.created_at).toLocaleString()+'</span></td><td><b>'+oe(o.receiver_name||'')+'</b><br>'+oe(o.receiver_phone||'')+'</td><td>'+oe(o.delivery_location||'')+'<br><span class="muted">'+oe(o.estate||o.subcounty||o.county||'')+'</span></td><td><b>'+om(o.total_amount)+'</b><br><span class="muted">Sub '+om(o.subtotal)+' · Del '+om(o.delivery_fee)+'</span></td><td>'+oe(o.payment_method||'')+'<br>'+op(o.payment_status||'pending',(o.payment_status||'').toLowerCase()==='paid'?'green':'')+'</td><td>'+op(o.delivery_pricing_status||'fixed',needsQuote?'':'green')+(needsQuote?'<br><button class="orange" style="margin-top:5px" onclick="viewOrder(\''+o.id+'\')">SEND QUOTE</button>':'')+'</td><td>'+oe(rider?.full_name||'Unassigned')+'</td><td><select onchange="updateOrderStatus(\''+o.id+'\',this.value)">'+orderStatuses.map(x=>'<option '+(x===st?'selected':'')+'>'+oe(x)+'</option>').join('')+'</select><button class="light" style="margin-top:5px" onclick="viewOrder(\''+o.id+'\')">VIEW / MANAGE</button></td></tr>';
+                }).join('')+'</tbody></table></div>';
+              };
+              window.updateOrderStatus=async function(id,status){
+                const current=(orders||[]).find(x=>x.id===id); if(!current)return;
+                if(status==='Delivered' && !current.assigned_rider_id){ if(!confirm('No rider is assigned. Mark this order Delivered anyway?'))return; }
+                const q=await sb.from('orders').update({status,updated_at:new Date().toISOString()}).eq('id',id);
+                if(q.error){alert('Order update failed: '+q.error.message);return;}
+                if(profile?.id){await sb.from('order_status_history').insert({order_id:id,status,changed_by:profile.id,notes:'Updated from LEOGO Admin Control Center'});}
+                await loadOrders();
+              };
+              window.saveOrderDelivery=async function(id){
+                const feeEl=document.getElementById('orderDeliveryFee');
+                const statusEl=document.getElementById('orderPricingStatus');
+                const noteEl=document.getElementById('orderPricingNote');
+                const estEl=document.getElementById('orderDeliveryEstimate');
+                const fee=Number(feeEl?.value);
+                if(!Number.isFinite(fee)||fee<0){alert('Enter a valid delivery fee.');return;}
+                const o=(orders||[]).find(x=>x.id===id); if(!o)return;
+                const total=Number(o.subtotal||0)+Number(o.service_fee||0)+fee+Number(o.other_charges||0);
+                const payload={delivery_fee:fee,total_amount:total,delivery_pricing_status:statusEl?.value||'quoted',delivery_pricing_note:(noteEl?.value||'').trim()||null,delivery_estimate:(estEl?.value||'').trim()||null,updated_at:new Date().toISOString()};
+                const q=await sb.from('orders').update(payload).eq('id',id);
+                if(q.error){alert('Delivery pricing update failed: '+q.error.message);return;}
+                const local=(orders||[]).find(x=>x.id===id); if(local)Object.assign(local,payload);
+                alert('Delivery fee sent to the customer record: '+om(fee)+'\nNew total: '+om(total));
+                await loadOrders();
+                await viewOrder(id);
+              };
+              window.assignOrderRider=async function(id,riderId){
+                const q=await sb.from('orders').update({assigned_rider_id:riderId||null,updated_at:new Date().toISOString()}).eq('id',id);
+                if(q.error){alert('Assignment failed: '+q.error.message);return;}
+                const local=(orders||[]).find(x=>x.id===id); if(local)local.assigned_rider_id=riderId||null;
+                await loadOrders();
+                await viewOrder(id);
+              };
+              window.viewOrder=async function(id){
+                const o=(orders||[]).find(x=>x.id===id); if(!o)return;
+                await loadRiders();
+                const items=await sb.from('order_items').select('*').eq('order_id',id);
+                const history=await sb.from('order_status_history').select('status,notes,created_at,changed_by').eq('order_id',id).order('created_at',{ascending:false}).limit(20);
+                const itemRows=(items.data||[]).map(i=>'<div class="setting-row"><div><b>'+oe(i.product_name||'Product')+'</b><div class="muted">Quantity: '+oe(i.quantity)+(i.variation_id?' · Selected variation':'')+'</div></div><b>'+om(i.line_total)+'</b></div>').join('');
+                const riderOptions='<option value="">— Not assigned —</option>'+orderRiders.map(r=>'<option value="'+oe(r.id)+'" '+(r.id===o.assigned_rider_id?'selected':'')+'>'+oe(r.full_name)+' · '+oe(r.role)+(r.phone?' · '+oe(r.phone):'')+'</option>').join('');
+                const histRows=(history.data||[]).map(h=>'<div class="setting-row"><div><b>'+oe(h.status)+'</b><div class="muted">'+oe(h.notes||'')+'</div></div><span class="muted">'+new Date(h.created_at).toLocaleString()+'</span></div>').join('');
+                document.getElementById('modalTitle').textContent='Customer Order #'+String(id).slice(0,8);
+                document.getElementById('modalBody').innerHTML='<div class="notice"><b>Customer Order Control</b><br>Changes made here are saved directly to the order. A quoted delivery fee updates the order total so the customer sees the new amount when their dashboard refreshes.</div><div class="detail"><div><b>Customer / Receiver</b>'+oe(o.receiver_name)+'</div><div><b>Phone</b>'+oe(o.receiver_phone)+'</div><div><b>Delivery Location</b>'+oe(o.delivery_location)+'</div><div><b>Estate / Area</b>'+oe(o.estate||o.subcounty||o.county||'')+'</div><div><b>Landmark</b>'+oe(o.landmark)+'</div><div><b>Payment Method</b>'+oe(o.payment_method)+'</div><div><b>Payment Status</b>'+oe(o.payment_status||'pending')+'</div><div><b>Current Status</b>'+oe(o.status||'Order Placed')+'</div><div><b>Subtotal</b>'+om(o.subtotal)+'</div><div><b>Service Fee</b>'+om(o.service_fee)+'</div><div><b>Delivery Fee</b>'+om(o.delivery_fee)+'</div><div><b>Grand Total</b><b>'+om(o.total_amount)+'</b></div></div><div class="card" style="margin-top:14px"><h3 style="margin-top:0">Delivery Pricing</h3><div class="field"><label>Delivery Fee (KSh)</label><input id="orderDeliveryFee" type="number" min="0" step="1" value="'+oe(o.delivery_fee??0)+'"></div><div class="field"><label>Pricing Status</label><select id="orderPricingStatus"><option value="fixed" '+(String(o.delivery_pricing_status)==='fixed'?'selected':'')+'>Fixed</option><option value="requested" '+(String(o.delivery_pricing_status)==='requested'?'selected':'')+'>Customer Requested Quote</option><option value="quoted" '+(String(o.delivery_pricing_status)==='quoted'?'selected':'')+'>Quote Sent to Customer</option></select></div><div class="field"><label>Message / Pricing Note</label><textarea id="orderPricingNote" placeholder="e.g. Delivery to Ugunja is KSh 250.">'+oe(o.delivery_pricing_note||'')+'</textarea></div><div class="field"><label>Delivery Estimate</label><input id="orderDeliveryEstimate" value="'+oe(o.delivery_estimate||'')+'" placeholder="e.g. Today 3:00–5:00 PM"></div><button class="orange" onclick="saveOrderDelivery(\''+id+'\')">SEND / SAVE DELIVERY FEE</button></div><div class="card" style="margin-top:14px"><h3 style="margin-top:0">Assign Rider / Driver</h3><select id="orderRiderSelect" onchange="assignOrderRider(\''+id+'\',this.value)">'+riderOptions+'</select>'+(orderRiders.length?'':'<div class="notice" style="margin-top:10px">No active rider/driver profile is currently available. Add a user with role <b>rider</b>, <b>driver</b> or <b>delivery</b> before assigning this order.</div>')+'</div><div class="card" style="margin-top:14px"><h3 style="margin-top:0">Customer Order Items</h3>'+(itemRows||'<div class="muted">No order items returned.</div>')+'</div><div class="card" style="margin-top:14px"><h3 style="margin-top:0">Update Status</h3><div class="actions">'+orderStatuses.map(x=>'<button class="'+(x===o.status?'orange':'light')+'" onclick="updateOrderStatus(\''+o.id+'\',\''+x+'\');setTimeout(()=>viewOrder(\''+o.id+'\'),500)">'+oe(x)+'</button>').join('')+'</div></div><div class="card" style="margin-top:14px"><h3 style="margin-top:0">Status History</h3>'+(histRows||'<div class="muted">No history recorded yet.</div>')+'</div>';
+                document.getElementById('modal').classList.remove('hidden');
+              };
+            })();
+            </script>
+          CUSTOMER_SCRIPT: |
+            <script>
+            /* LEOGO CUSTOMER ORDER QUOTE V2: lets a customer request delivery pricing and see the quoted fee. */
+            (function(){
+              function addQuoteOption(){
+                const s=document.getElementById('coDelivery');
+                if(!s || s.querySelector('option[value="quote"]'))return;
+                const o=document.createElement('option');
+                o.value='quote';
+                o.textContent='Request delivery quote — Admin will confirm fee';
+                s.appendChild(o);
+                s.addEventListener('change',function(){
+                  const show=document.getElementById('coDeliveryShow'), final=document.getElementById('coFinal');
+                  if(this.value==='quote'){
+                    if(show)show.textContent='To be confirmed';
+                    if(final) final.textContent='Delivery fee pending confirmation';
+                  }
+                });
+              }
+              const observer=new MutationObserver(addQuoteOption);
+              observer.observe(document.body,{childList:true,subtree:true});
+              addQuoteOption();
+
+              window.placeOrder=async function(subtotal,service){
+                if(!sb){toast('Connect Supabase before placing live orders.');return}
+                const deliveryChoice=document.getElementById('coDelivery')?.value||'50';
+                const payment=document.getElementById('coPayment')?.value||'M-PESA';
+                const isQuote=deliveryChoice==='quote';
+                const delivery=isQuote?0:Number(deliveryChoice);
+                const total=Number(subtotal||0)+Number(service||0)+delivery;
+                if(!isQuote && payment.startsWith('Cash')&&total>10000){toast('COD is not permitted above KSh 10,000.');return}
+                const orderPayload={
+                  customer_id:session.user.id, subtotal:Number(subtotal||0), service_fee:Number(service||0), delivery_fee:delivery, total_amount:total,
+                  receiver_name:document.getElementById('coName')?.value||'', receiver_phone:document.getElementById('coPhone')?.value||'',
+                  delivery_location:document.getElementById('coLocation')?.value||'', landmark:document.getElementById('coLandmark')?.value||'',
+                  payment_method:payment, status:'Order Placed', delivery_pricing_status:isQuote?'requested':'fixed',
+                  delivery_pricing_note:isQuote?'Customer requested delivery quote.':null
+                };
+                const {data:order,error}=await sb.from('orders').insert(orderPayload).select().single();
+                if(error){toast(error.message);return}
+                const items=cart.map(x=>({order_id:order.id,product_id:x.product_id||x.id,seller_id:x.seller_id||null,product_name:x.name,quantity:x.qty,unit_price:x.price,line_total:Number(x.price)*x.qty}));
+                const {error:e2}=await sb.from('order_items').insert(items);
+                if(e2){toast(e2.message);return}
+                cart=[];localStorage.setItem('leogo_cart','[]');updateCartBadge();closeModal();
+                toast(isQuote?'Order placed. Delivery fee will be confirmed by LEOGO.':'Order placed successfully');
+                showCustomerDashboard();
+              };
+
+              window.customerOrders=async function(){
+                if(!sb)return;
+                const {data,error}=await sb.from('orders').select('*').eq('customer_id',session.user.id).order('created_at',{ascending:false});
+                if(error){toast(error.message);return}
+                document.getElementById('dashContent').innerHTML='<div class="panel"><h3>My Orders</h3>'+(data?.length?'<div class="table-wrap"><table class="table"><thead><tr><th>Order</th><th>Date</th><th>Total</th><th>Delivery</th><th>Status</th></tr></thead><tbody>'+(data||[]).map(o=>{const ps=String(o.delivery_pricing_status||'fixed');const quote=ps==='requested';const quoted=ps==='quoted';return '<tr><td>#'+escapeHtml(o.id.slice(0,8))+'</td><td>'+new Date(o.created_at).toLocaleString()+'</td><td>'+money(o.total_amount)+'</td><td><b>'+money(o.delivery_fee)+'</b><br><span class="pill '+(quote?'orange':quoted?'green':'')+'">'+escapeHtml(ps)+'</span>'+(o.delivery_pricing_note?'<br><span class="muted">'+escapeHtml(o.delivery_pricing_note)+'</span>':'')+'</td><td><span class="pill orange">'+escapeHtml(o.status)+'</span></td></tr>'}).join('')+'</tbody></table></div>':'<div class="empty">No orders yet.</div>')+'</div>';
+              };
+            })();
+            </script>
+        run: |
+          python - <<'PY2'
+          import os
+          from pathlib import Path
+          def patch(path, marker, script):
+              p=Path(path)
+              s=p.read_text()
+              if marker in s:
+                  return False
+              end='</body></html>'
+              if end not in s:
+                  raise SystemExit(f'Missing closing marker in {path}')
+              s=s.replace(end, script+'\n'+end, 1)
+              p.write_text(s)
+              return True
+          changed=False
+          changed |= patch('admin.html', 'LEOGO ORDER MANAGEMENT V2', os.environ['ORDER_SCRIPT'])
+          changed |= patch('index.html', 'LEOGO CUSTOMER ORDER QUOTE V2', os.environ['CUSTOMER_SCRIPT'])
+          if not changed:
+              print('Already patched; nothing to do.')
+          else:
+              print('Patched order management files.')
+          PY2
+      - name: Commit changes and remove temporary workflow
+        run: |
+          rm -f .github/workflows/leogo-order-management.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin.html index.html .github/workflows/leogo-order-management.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "feat: add LEOGO order management and delivery quotes [skip ci]"
+          git push
