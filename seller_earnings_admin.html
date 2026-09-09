@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>LEOGO — Seller Earnings</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f5f7fb;color:#172033}.top{background:#111827;color:#fff;padding:16px 20px;display:flex;justify-content:space-between;align-items:center}.top h1{font-size:20px;margin:0}.top a{color:#fff;text-decoration:none;background:#374151;padding:9px 12px;border-radius:7px}.wrap{max-width:1200px;margin:22px auto;padding:0 14px}.notice{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-bottom:18px}.notice strong{display:block;margin-bottom:5px}.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px}.card span{display:block;color:#667085;font-size:13px}.card b{display:block;font-size:25px;margin-top:6px}.toolbar{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}.toolbar button,.toolbar select{padding:9px 12px;border:1px solid #d1d5db;border-radius:7px;background:#fff}.toolbar button{cursor:pointer;background:#111827;color:#fff}.tablebox{background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:auto}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:12px;border-bottom:1px solid #eef0f4;text-align:left;font-size:14px}th{background:#f9fafb}.amount{font-weight:700}.status{display:inline-block;padding:5px 8px;border-radius:999px;font-size:12px;text-transform:capitalize}.pending{background:#fff4cc}.processing{background:#e8eefc}.settled{background:#dcfce7}.failed{background:#fee2e2}.settle{border:0;background:#166534;color:#fff;padding:7px 10px;border-radius:6px;cursor:pointer}.muted{color:#667085}.error{color:#b42318;background:#fef3f2;border:1px solid #fecdca;padding:12px;border-radius:8px;margin-bottom:12px}.empty{padding:28px;text-align:center;color:#667085}@media(max-width:800px){.cards{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="top"><h1>LEOGO Seller Earnings & Settlement</h1><a href="admin.html">← Admin</a></div>
+<div class="wrap">
+  <div class="notice"><strong>Seller earnings rule</strong> A seller earns exactly the value of the products they sold. LEOGO does <b>not</b> deduct the platform fee from the seller's product money here. Example: 10 sodas × KSh 40 = <b>KSh 400</b> seller earnings. Once paid orders are synced, admin can mark each seller settlement as settled after payment is sent to the verified payout account.</div>
+  <div id="error"></div>
+  <div class="cards">
+    <div class="card"><span>Pending Seller Earnings</span><b id="pending">KSh 0.00</b></div>
+    <div class="card"><span>Processing</span><b id="processing">KSh 0.00</b></div>
+    <div class="card"><span>Settled</span><b id="settled">KSh 0.00</b></div>
+    <div class="card"><span>All Seller Sales</span><b id="all">KSh 0.00</b></div>
+  </div>
+  <div class="toolbar">
+    <select id="filter" onchange="loadEarnings()"><option value="all">All</option><option value="pending">Pending</option><option value="processing">Processing</option><option value="settled">Settled</option><option value="failed">Failed</option></select>
+    <button onclick="syncAndLoad()">↻ Sync Paid Orders</button>
+    <a href="settlement_admin.html" style="padding:9px 12px">Manage Payout Accounts</a>
+  </div>
+  <div class="tablebox"><table><thead><tr><th>Seller</th><th>Business</th><th>Order</th><th>Sale Date</th><th>Seller Earnings</th><th>Payout Account</th><th>Status</th><th>Action</th></tr></thead><tbody id="rows"><tr><td colspan="8" class="empty">Loading seller earnings…</td></tr></tbody></table></div>
+</div>
+<script>
+const SUPABASE_URL='https://twpiloiiigdghwcdjbnj.supabase.co';
+const SUPABASE_KEY='sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const money=n=>'KSh '+Number(n||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
+function esc(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function showError(e){document.getElementById('error').innerHTML=e?'<div class="error">'+esc(e)+'</div>':''}
+async function requireAdmin(){
+ const {data:{session}}=await sb.auth.getSession();
+ if(!session){location.href='admin.html';return false}
+ const {data:p,error}=await sb.from('profiles').select('role').eq('id',session.user.id).single();
+ if(error||!p||!['admin','manager','supervisor','staff'].includes(p.role)){location.href='admin.html';return false}
+ return true;
+}
+async function syncAndLoad(){
+ showError('');
+ const {error}=await sb.rpc('sync_seller_settlements');
+ if(error)showError(error.message);
+ await loadEarnings();
+}
+async function loadEarnings(){
+ const ok=await requireAdmin();if(!ok)return;
+ showError('');
+ const filter=document.getElementById('filter').value;
+ let q=sb.from('seller_settlements').select('id,seller_id,order_id,gross_amount,status,payout_reference,settled_at,created_at').order('created_at',{ascending:false}).limit(500);
+ if(filter!=='all')q=q.eq('status',filter);
+ const {data:rows,error}=await q;
+ if(error){showError(error.message);document.getElementById('rows').innerHTML='<tr><td colspan="8" class="empty">Unable to load seller earnings.</td></tr>';return}
+ const sellerIds=[...new Set((rows||[]).map(x=>x.seller_id).filter(Boolean))];
+ let sellers=[]; if(sellerIds.length){const r=await sb.from('sellers').select('id,business_name,owner_name,phone,auth_user_id').in('id',sellerIds);if(r.error){showError(r.error.message);return}sellers=r.data||[]}
+ const orderIds=[...new Set((rows||[]).map(x=>x.order_id).filter(Boolean))];
+ let orders=[]; if(orderIds.length){const r=await sb.from('orders').select('id,created_at,payment_status,status').in('id',orderIds);orders=r.data||[]}
+ const userIds=sellers.map(s=>s.auth_user_id).filter(Boolean);
+ let accounts=[]; if(userIds.length){const r=await sb.from('settlement_accounts').select('user_id,preferred_method,mpesa_number,airtel_number,bank_name,bank_account_number,status').in('user_id',userIds);accounts=r.data||[]}
+ const sm=new Map(sellers.map(x=>[x.id,x])), om=new Map(orders.map(x=>[x.id,x])), am=new Map(accounts.map(x=>[x.user_id,x]));
+ const allRows=rows||[];
+ const sums={pending:0,processing:0,settled:0,all:0};
+ allRows.forEach(x=>{sums.all+=Number(x.gross_amount||0);if(sums[x.status]!==undefined)sums[x.status]+=Number(x.gross_amount||0)});
+ document.getElementById('pending').textContent=money(sums.pending);document.getElementById('processing').textContent=money(sums.processing);document.getElementById('settled').textContent=money(sums.settled);document.getElementById('all').textContent=money(sums.all);
+ if(!allRows.length){document.getElementById('rows').innerHTML='<tr><td colspan="8" class="empty">No seller settlements found. Use “Sync Paid Orders” after customer payments are recorded as paid.</td></tr>';return}
+ document.getElementById('rows').innerHTML=allRows.map(x=>{
+   const s=sm.get(x.seller_id)||{},o=om.get(x.order_id)||{},a=am.get(s.auth_user_id)||{};
+   const payout=a.preferred_method==='mpesa'?('M-Pesa '+(a.mpesa_number||'')):a.preferred_method==='airtel'?('Airtel '+(a.airtel_number||'')):a.preferred_method==='bank'?((a.bank_name||'Bank')+' '+(a.bank_account_number||'')):'Not provided';
+   const canSettle=['pending','processing'].includes(x.status);
+   return `<tr><td>${esc(s.owner_name||'')}</td><td>${esc(s.business_name||'')}</td><td>${esc(x.order_id||'')}</td><td>${o.created_at?new Date(o.created_at).toLocaleString('en-KE'):''}</td><td class="amount">${money(x.gross_amount)}</td><td>${esc(payout)}<br><span class="muted">${esc(a.status||'')}</span></td><td><span class="status ${esc(x.status)}">${esc(x.status)}</span></td><td>${canSettle?`<button class="settle" onclick="settle('${x.id}')">Mark Settled</button>`:'—'}</td></tr>`;
+ }).join('');
+}
+async function settle(id){
+ const ref=prompt('Enter payment/M-Pesa reference (optional):','');if(ref===null)return;
+ const notes=prompt('Settlement note (optional):','Paid to seller payout account');if(notes===null)return;
+ const {error}=await sb.rpc('mark_seller_settlement_settled',{p_settlement_id:id,p_payout_reference:ref,p_notes:notes});
+ if(error){showError(error.message);return}
+ await loadEarnings();
+}
+sb.auth.onAuthStateChange(()=>setTimeout(loadEarnings,100));
+loadEarnings();
+</script>
+</body>
+</html>
