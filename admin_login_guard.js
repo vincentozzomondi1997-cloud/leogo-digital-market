@@ -44,6 +44,15 @@
     };
   }
   function modal(title,body){var t=document.getElementById('modalTitle'),b=document.getElementById('modalBody'),m=document.getElementById('modal');if(!t||!b||!m)return;t.textContent=title;b.innerHTML=body;m.classList.remove('hidden');}
+  function closeAdminModal(){var m=document.getElementById('modal');if(m)m.classList.add('hidden');}
+  window.closeModal=closeAdminModal;
+  function installModalClose(){
+    document.addEventListener('click',function(e){
+      var el=e.target&&e.target.closest?e.target.closest('.close'):null;
+      if(el){e.preventDefault();e.stopPropagation();closeAdminModal();}
+    },true);
+    document.addEventListener('keydown',function(e){if(e.key==='Escape')closeAdminModal();});
+  }
   function variationRows(rows){
     if(!rows||!rows.length)return '<div class="notice">No product variations saved for this product.</div>';
     return '<div class="variation-list"><div class="variation-title">Product Variations ('+rows.length+')</div>'+rows.map(function(v){return '<div class="variation"><div>'+(v.image_url?'<img src="'+esc(v.image_url)+'">':'')+'</div><div><b>'+esc(v.name)+'</b><div class="muted">'+(v.available?'Available':'Unavailable')+'</div></div><div>'+money(v.price)+'</div><div>Stock: '+esc(v.stock_qty||0)+'</div></div>';}).join('')+'</div>';
@@ -103,7 +112,7 @@
     window.viewProduct=viewProductEnhanced;window.viewSeller=viewSellerEnhanced;window.openSellerDocument=openSellerDocument;window.viewOrder=viewOrderEnhanced;
     if(typeof window.updateOrderStatus!=='function'){window.updateOrderStatus=async function(id,status){var q=await getSB().from('orders').update({status:status,updated_at:new Date().toISOString()}).eq('id',id).select('id,status').maybeSingle();if(q.error){alert('Order status update failed: '+q.error.message);return false;}if(!q.data){alert('No order was updated. Check Admin permissions.');return false;}if(typeof window.loadOrders==='function')await window.loadOrders();return true;};}
   }
-  function boot(){installLogin();installNavigationFallback();installEnhancedManagement();}
+  function boot(){installLogin();installNavigationFallback();installEnhancedManagement();installModalClose();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
   var timer=setInterval(function(){boot();if(typeof window.login==='function'&&typeof window.go==='function')clearInterval(timer);},100);
 })();
