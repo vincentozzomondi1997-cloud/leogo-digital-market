@@ -12,7 +12,7 @@ const LEOGO_SELLER_ORDER_PANEL = (() => {
     const panel=document.createElement('div');
     panel.id='sellerOrderPanel';
     panel.className='panel';
-    panel.innerHTML=`<h2>Seller Orders & Expected Earnings</h2><div id="sellerOrderSummary" class="muted">Checking your sales…</div><div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Order</th><th>Items to Pack</th><th>Customer / Delivery</th><th>Payment</th><th>Order Status</th><th>Your Expected Earnings</th></tr></thead><tbody id="sellerOrderRows"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody></table></div>`;
+    panel.innerHTML=`<h2>Seller Orders & Expected Earnings</h2><div id="sellerOrderSummary" class="muted">Checking your sales…</div><div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Order</th><th>Items to Pack</th><th>Customer / Delivery</th><th>Payment</th><th>Order Status</th><th>Your Expected Earnings</th></tr></thead><tbody id="sellerOrderRows"><tr><td colspan="6" class="empty">Loading…</td></tr></tbody></div>`;
     const progress=document.querySelector('#statusGrid')?.closest('.panel');
     if(progress) progress.parentNode.insertBefore(panel,progress); else document.querySelector('main.wrap')?.appendChild(panel);
     return panel;
@@ -44,7 +44,7 @@ const LEOGO_SELLER_ORDER_PANEL = (() => {
       if(isPaid&&!isCancelled){expected+=sellerAmount;soldCount++;if(!['packed','ready for pickup','ready','out for delivery','delivered'].includes(String(o.status||'').toLowerCase()))packCount++;}
       const itemsText=mine.map(x=>`${esc(x.product_name)} × ${esc(x.quantity)}${x.variation_id?' (variation)':''}`).join('<br>');
       const delivery=[o.receiver_name,o.receiver_phone,o.delivery_location,o.landmark].filter(Boolean).map(esc).join('<br>');
-      const packing=isCancelled?'Do not pack':isPaid&&['packed','ready for pickup','ready','out for delivery','delivered'].includes(String(o.status||'').toLowerCase())?'Already processed':'READY TO PACK';
+      const packing=isCancelled?'Do not pack':!isPaid?'WAITING FOR PAYMENT':(['packed','ready for pickup','ready','out for delivery','delivered'].includes(String(o.status||'').toLowerCase())?'Already processed':'READY TO PACK');
       return `<tr><td><b>${esc(o.id.slice(0,8))}</b><br><span class="muted">${esc(new Date(o.created_at).toLocaleString('en-KE'))}</span></td><td>${itemsText}<br><span class="pill ${packing==='READY TO PACK'?'pending':''}">${esc(packing)}</span></td><td>${delivery||'Delivery details not set'}</td><td>${statusPill(o.payment_status||'pending')}</td><td>${statusPill(o.status||'Order Placed')}</td><td><b>${isPaid&&!isCancelled?money(sellerAmount):'KSh 0.00'}</b></td></tr>`;
     }).join('');
     rows.innerHTML=html||'<tr><td colspan="6" class="empty">No seller orders yet.</td></tr>';
