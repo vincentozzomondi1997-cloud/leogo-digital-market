@@ -3,7 +3,7 @@ const LEOGO_SELLER_ORDER_PANEL = (() => {
   const KEY='sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX';
   const sb=window.supabase.createClient(URL,KEY);
   const money=n=>'KSh '+Number(n||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
-  const esc=v=>String(v??'').replace(/[&<>\'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  const esc=v=>String(v??'').replace(/[&<>\'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
   const cancelled=s=>['cancelled','canceled','failed'].includes(String(s||'').toLowerCase());
   const paid=s=>['paid','completed','success','successful'].includes(String(s||'').toLowerCase());
   const statusPill=s=>{const x=String(s||'').toLowerCase();let cls='pending';if(['paid','completed','successful','success','ready to pack','packed','delivered'].includes(x))cls='approved';if(['cancelled','canceled','failed','rejected'].includes(x))cls='rejected';return `<span class="pill ${cls}">${esc(s||'Pending')}</span>`};
@@ -33,7 +33,7 @@ const LEOGO_SELLER_ORDER_PANEL = (() => {
     const items=itemQ.data||[];
     const ids=[...new Set(items.map(x=>x.order_id).filter(Boolean))];
     if(!ids.length){rows.innerHTML='<tr><td colspan="6" class="empty">No customer orders for your products yet.</td></tr>';document.getElementById('sellerOrderSummary').textContent='No sales yet.';return;}
-    const orderQ=await sb.from('orders').select('id,receiver_name,receiver_phone,delivery_location,landmark,subtotal,total_amount,payment_status,status,created_at').in('id',ids).order('created_at',{ascending:false});
+    const orderQ=await sb.from('orders').select('id,receiver_name,receiver_phone,delivery_location,landmark,subtotal,total_amount,payment_method,payment_status,status,created_at').in('id',ids).order('created_at',{ascending:false});
     if(orderQ.error){rows.innerHTML=`<tr><td colspan="6" class="empty">Could not load order details: ${esc(orderQ.error.message)}</td></tr>`;return;}
     const orders=orderQ.data||[];const byId=new Map();items.forEach(x=>{if(!byId.has(x.order_id))byId.set(x.order_id,[]);byId.get(x.order_id).push(x)});
     let expected=0,packCount=0,soldCount=0;
@@ -41,11 +41,16 @@ const LEOGO_SELLER_ORDER_PANEL = (() => {
       const mine=byId.get(o.id)||[];
       const sellerAmount=mine.reduce((a,x)=>a+Number(x.line_total||Number(x.unit_price||0)*Number(x.quantity||0)),0);
       const isPaid=paid(o.payment_status);const isCancelled=cancelled(o.status)||cancelled(o.payment_status);
-      if(isPaid&&!isCancelled){expected+=sellerAmount;soldCount++;if(!['packed','ready for pickup','ready','out for delivery','delivered'].includes(String(o.status||'').toLowerCase()))packCount++;}
+      const isCod=String(o.payment_method||'').toLowerCase().startsWith('cash on delivery');
+      const processed=['packed','ready for pickup','ready','out for delivery','delivered'].includes(String(o.status||'').toLowerCase());
+      if(isPaid&&!isCancelled){expected+=sellerAmount;soldCount++;if(!processed)packCount++;}
+      else if(isCod&&!isCancelled&&!processed){packCount++;}
       const itemsText=mine.map(x=>`${esc(x.product_name)} × ${esc(x.quantity)}${x.variation_id?' (variation)':''}`).join('<br>');
       const delivery=[o.receiver_name,o.receiver_phone,o.delivery_location,o.landmark].filter(Boolean).map(esc).join('<br>');
-      const packing=isCancelled?'Do not pack':!isPaid?'WAITING FOR PAYMENT':(['packed','ready for pickup','ready','out for delivery','delivered'].includes(String(o.status||'').toLowerCase())?'Already processed':'READY TO PACK');
-      return `<tr><td><b>${esc(o.id.slice(0,8))}</b><br><span class="muted">${esc(new Date(o.created_at).toLocaleString('en-KE'))}</span></td><td>${itemsText}<br><span class="pill ${packing==='READY TO PACK'?'pending':''}">${esc(packing)}</span></td><td>${delivery||'Delivery details not set'}</td><td>${statusPill(o.payment_status||'pending')}</td><td>${statusPill(o.status||'Order Placed')}</td><td><b>${isPaid&&!isCancelled?money(sellerAmount):'KSh 0.00'}</b></td></tr>`;
+      const packing=isCancelled?'Do not pack':processed?'Already processed':(isCod||isPaid?'READY TO PACK':'WAITING FOR PAYMENT');
+      const paymentMethod=isCod?'Cash On Delivery':'Prepaid (M-PESA)';
+      const paymentState=o.payment_status||'pending';
+      return `<tr><td><b>${esc(o.id.slice(0,8))}</b><br><span class="muted">${esc(new Date(o.created_at).toLocaleString('en-KE'))}</span></td><td>${itemsText}<br><span class="pill ${packing==='READY TO PACK'?'pending':''}">${esc(packing)}</span></td><td>${delivery||'Delivery details not set'}</td><td><b>${esc(paymentMethod)}</b><br>${statusPill(paymentState)}</td><td>${statusPill(o.status||'Order Placed')}</td><td><b>${isPaid&&!isCancelled?money(sellerAmount):'KSh 0.00'}</b></td></tr>`;
     }).join('');
     rows.innerHTML=html||'<tr><td colspan="6" class="empty">No seller orders yet.</td></tr>';
     const pendingQ=await sb.from('seller_settlements').select('gross_amount,status').eq('seller_id',sellerId);
