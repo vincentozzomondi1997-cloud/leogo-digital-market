@@ -121,3 +121,68 @@
   setTimeout(start,500);
   setTimeout(start,1500);
 })();
+
+/* LEOGO TRANSPORT ASSIGNMENT PANEL FIX - isolated override.
+   Uses the already-authenticated admin client and does not replace the existing
+   vehicle/account management or customer transport workflow. */
+(function(){
+  var client=window.__leogoAdminSB;
+  if(!client)return;
+  var esc2=function(v){return String(v??'').replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]});};
+  var money2=function(v){return 'KSh '+Number(v||0).toLocaleString('en-KE',{minimumFractionDigits:0,maximumFractionDigits:2});};
+  var busy=new Set(['assigned','accepted','in progress','picked up','on the way','out for delivery','processing','started']);
+
+  async function loadAssignmentPanel(){
+    var page=document.getElementById('page-transport');
+    var panel=document.getElementById('leogoTransportDispatchPanel');
+    if(!page||!panel)return;
+    var area=document.getElementById('leogoTransportDispatchPanelArea');
+    if(!area)return;
+    area.innerHTML='<div class="empty">Loading transport bookings…</div>';
+    try{
+      var rq=await client.from('transport_requests').select('id,customer_id,driver_id,vehicle_id,pickup_location,destination,status,price,created_at').order('created_at',{ascending:false}).limit(100);
+      if(rq.error){area.innerHTML='<div class="notice error">Could not load transport bookings: '+esc2(rq.error.message)+'</div>';return;}
+      var vq=await client.from('vehicles').select('id,owner_id,vehicle_type,registration,capacity_kg,approval_status,available').eq('approval_status','approved').eq('available',true).order('created_at',{ascending:false});
+      if(vq.error){area.innerHTML='<div class="notice error">Could not load available vehicles: '+esc2(vq.error.message)+'</div>';return;}
+      var reqs=rq.data||[],vehicles=vq.data||[];
+      if(!reqs.length){area.innerHTML='<div class="empty">No transport bookings or RFQs yet.</div>';return;}
+      var customerIds=[...new Set(reqs.map(function(x){return x.customer_id;}).filter(Boolean))];
+      var ownerIds=[...new Set(vehicles.map(function(x){return x.owner_id;}).concat(reqs.map(function(x){return x.driver_id;}).filter(Boolean)))];
+      var cm={},pm={};
+      if(customerIds.length){var cq=await client.from('profiles').select('id,full_name,phone,location').in('id',customerIds);if(cq.error){area.innerHTML='<div class="notice error">Could not load customer details: '+esc2(cq.error.message)+'</div>';return;} (cq.data||[]).forEach(function(x){cm[x.id]=x;});}
+      if(ownerIds.length){var oq=await client.from('profiles').select('id,full_name,phone,location,status').in('id',ownerIds);if(oq.error){area.innerHTML='<div class="notice error">Could not load transporter details: '+esc2(oq.error.message)+'</div>';return;} (oq.data||[]).forEach(function(x){pm[x.id]=x;});}
+      var active=reqs.filter(function(x){return busy.has(String(x.status||'').toLowerCase())&&x.driver_id;}).map(function(x){return x.vehicle_id;}).filter(Boolean);
+      area.innerHTML=reqs.map(function(req){
+        var cust=cm[req.customer_id]||{}, cur=pm[req.driver_id], curVehicle=vehicles.find(function(v){return v.id===req.vehicle_id;});
+        var free=vehicles.filter(function(v){return !active.includes(v.id)||v.id===req.vehicle_id;});
+        var options=free.map(function(v){var p=pm[v.owner_id]||{};return '<option value="'+esc2(v.id)+'" '+(v.id===req.vehicle_id?'selected':'')+'>'+esc2(p.full_name||v.owner_id)+' · '+esc2(v.vehicle_type||'Vehicle')+' · '+esc2(v.registration||'')+'</option>';}).join('');
+        return '<div style="border:1px solid #e5e7eb;border-radius:15px;padding:14px;margin-bottom:12px">'+
+          '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><b>#'+esc2(String(req.id).slice(0,8))+'</b> <span class="pill blue">TRANSPORT</span><div class="muted">'+esc2(new Date(req.created_at).toLocaleString('en-KE'))+'</div></div><span class="pill '+(String(req.status||'').toLowerCase()==='assigned'?'green':'')+'">'+esc2(req.status||'Requested')+'</span></div>'+
+          '<div class="detail"><div><b>CUSTOMER</b>'+esc2(cust.full_name||req.customer_id||'')+'<br>'+esc2(cust.phone||'')+'</div><div><b>ROUTE</b>'+esc2(req.pickup_location||'')+' → '+esc2(req.destination||'')+'</div><div><b>PRICE</b>'+money2(req.price)+'</div><div><b>CURRENT ASSIGNMENT</b>'+esc2(cur?.full_name||'Unassigned')+(curVehicle?' · '+esc2(curVehicle.registration||curVehicle.vehicle_type):'')+'</div></div>'+
+          (options?'<div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-top:12px"><div><label>Assign Driver / Vehicle</label><select id="transportAssignFix_'+esc2(req.id)+'">'+options+'</select></div><button class="orange" onclick="window.__leogoAssignTransportFix(\''+esc2(req.id)+'\',this)">'+(req.driver_id?'REASSIGN':'ASSIGN')+'</button></div>':'<div class="notice" style="margin-top:12px">No approved and available vehicle is currently available for assignment.</div>')+
+        '</div>';
+      }).join('');
+    }catch(e){area.innerHTML='<div class="notice error">Transport assignment panel error: '+esc2(e.message||e)+'</div>';}
+  }
+
+  window.__leogoAssignTransportFix=async function(requestId,btn){
+    var sel=document.getElementById('transportAssignFix_'+requestId),vehicleId=sel&&sel.value;
+    if(!vehicleId)return;
+    if(btn){btn.disabled=true;btn.textContent='Saving…';}
+    var v=await client.from('vehicles').select('owner_id').eq('id',vehicleId).maybeSingle();
+    if(v.error||!v.data?.owner_id){alert(v.error?.message||'Could not identify the vehicle owner.');if(btn){btn.disabled=false;btn.textContent='ASSIGN';}return;}
+    var q=await client.from('transport_requests').update({driver_id:v.data.owner_id,vehicle_id:vehicleId,status:'Assigned',updated_at:new Date().toISOString()}).eq('id',requestId);
+    if(q.error){alert('Assignment failed: '+q.error.message);if(btn){btn.disabled=false;btn.textContent='ASSIGN';}return;}
+    await loadAssignmentPanel();
+  };
+
+  function hook(){
+    var page=document.getElementById('page-transport');
+    if(page&&page.classList.contains('active'))loadAssignmentPanel();
+  }
+  document.addEventListener('click',function(e){
+    var b=e.target&&e.target.closest?e.target.closest('[data-page="transport"]'):null;
+    if(b){setTimeout(loadAssignmentPanel,900);}
+  },true);
+  setTimeout(hook,1200);
+})();
