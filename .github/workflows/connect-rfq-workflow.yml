@@ -1,0 +1,47 @@
+name: Connect RFQ Workflow
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  connect:
+    if: ${{ !contains(github.event.head_commit.message, '[rfq-connect]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inject isolated RFQ scripts
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          files = {
+            'index.html': '<script src="customer_rfq.js"></script>',
+            'provider_dashboard.html': '<script src="provider_rfq.js"></script>',
+            'admin.html': '<script src="admin_rfq.js"></script>'
+          }
+          for name, marker in files.items():
+              p=Path(name)
+              text=p.read_text(encoding='utf-8')
+              if marker not in text:
+                  needle='</body>'
+                  if needle not in text:
+                      raise SystemExit(f'{name}: closing body tag not found; no changes made')
+                  text=text.replace(needle, marker+'\n'+needle, 1)
+                  p.write_text(text, encoding='utf-8')
+                  print(f'{name}: injected {marker}')
+              else:
+                  print(f'{name}: already connected')
+          PY
+      - name: Commit RFQ connections
+        shell: bash
+        run: |
+          if git diff --quiet -- index.html provider_dashboard.html admin.html; then
+            echo 'No RFQ connection changes needed.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html provider_dashboard.html admin.html
+          git commit -m 'Connect RFQ workflow surfaces [rfq-connect]'
+          git push
