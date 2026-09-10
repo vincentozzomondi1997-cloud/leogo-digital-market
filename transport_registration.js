@@ -32,7 +32,6 @@
     const mode=document.getElementById('transport_mode');
     const oldType=document.getElementById('vehicle_type');
     const oldReg=document.getElementById('vehicle_registration');
-    const oldCap=document.getElementById('vehicle_capacity');
     const modeGrid=mode?.closest('.grid');
     const vehicleGrid=oldReg?.closest('.grid');
     const oldDocIds=['driving_licence_doc','vehicle_document_doc','transport_other_doc'];
@@ -44,7 +43,6 @@
     ownerBox.className='box';
     ownerBox.style.marginTop='14px';
     ownerBox.innerHTML='<h3 style="margin-top:0">Transporter / Owner Documents</h3><p class="muted">These documents identify or qualify the transporter. They are separate from vehicle documents.</p>'+fileInput('Driving Licence','driving_licence')+fileInput('National ID / Passport','owner_id')+fileInput('Other Owner / Transport Document','owner_other');
-    if(modeGrid)modeGrid.insertAdjacentElement('afterend',ownerBox);else f.insertBefore(ownerBox,f.firstChild);
     const holder=document.createElement('div');
     holder.id='leogoVehicleList';
     const title=document.createElement('div');
@@ -55,7 +53,7 @@
     add.type='button';add.className='secondary';add.textContent='＋ ADD ANOTHER VEHICLE';add.style.marginTop='12px';
     add.onclick=()=>holder.insertBefore(card(),add);
     holder.appendChild(add);
-    if(modeGrid)modeGrid.insertAdjacentElement('afterend',holder);else f.insertBefore(holder,f.firstChild);
+    if(modeGrid){modeGrid.insertAdjacentElement('afterend',ownerBox);ownerBox.insertAdjacentElement('afterend',holder);}else{f.insertBefore(ownerBox,f.firstChild);ownerBox.insertAdjacentElement('afterend',holder);}
   }
   function validFile(file,label){if(!file)return true;if(!['application/pdf','image/jpeg','image/png'].includes(file.type)||file.size>5242880)throw new Error(label+' must be PDF, JPG, JPEG or PNG and no larger than 5 MB.');return true;}
   async function upload(uid,file,label){if(!file)return null;validFile(file,label);const ext=(file.name.split('.').pop()||'bin').toLowerCase(),path=uid+'/'+crypto.randomUUID()+'.'+ext,q=await sbx.storage.from('business-documents').upload(path,file,{upsert:false,contentType:file.type});if(q.error)throw new Error('Could not upload '+label+': '+q.error.message);return {label,path,name:file.name,type:file.type,size:file.size};}
