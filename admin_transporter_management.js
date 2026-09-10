@@ -43,21 +43,27 @@
     return '<div class="card" style="margin-top:14px"><h3 style="margin-top:0">'+esc(title)+'</h3>'+(!list.length?'<div class="muted">'+esc(empty)+'</div>':list.map((d,i)=>'<div class="setting-row"><div><b>'+esc(d.doc?.label||d.doc?.name||('Document '+(i+1)))+'</b><div class="muted">'+esc(d.doc?.name||d.doc?.path||'')+'</div></div><a class="button light" target="_blank" rel="noopener" href="'+esc(d.url)+'">VIEW DOCUMENT</a></div>').join(''))+'</div>';
   }
 
+  function ensurePanel(){
+    const page=document.getElementById('page-transport');
+    if(!page)return null;
+    let panel=document.getElementById('leogoTransporterAccountsPanel');
+    if(panel)return panel;
+    panel=document.createElement('div');
+    panel.id='leogoTransporterAccountsPanel';
+    panel.className='card';
+    panel.innerHTML='<div class="toolbar"><div><h2 style="margin:0">🚛 Transporter Account Management</h2><div class="muted">Review vehicle owners and their submitted documents before approving the transporter account.</div></div><button class="light" id="leogoTransporterAccountsRefresh">↻ REFRESH</button></div><div id="leogoTransporterAccountsArea" style="margin-top:12px"><div class="empty">Loading…</div></div>';
+    page.insertBefore(panel,page.firstElementChild);
+    document.getElementById('leogoTransporterAccountsRefresh').onclick=loadTransporters;
+    return panel;
+  }
+
   async function loadTransporters(){
     const sb=getSB();
     if(!sb){console.warn('LEOGO transporter management: admin session/client not ready yet.');return;}
-    const page=document.getElementById('page-transport');
-    if(!page)return;
-    let panel=document.getElementById('leogoTransporterAccountsPanel');
-    if(!panel){
-      panel=document.createElement('div');
-      panel.id='leogoTransporterAccountsPanel';
-      panel.className='card';
-      panel.innerHTML='<div class="toolbar"><div><h2 style="margin:0">🚛 Transporter Account Management</h2><div class="muted">Review vehicle owners and their submitted documents before approving the transporter account.</div></div><button class="light" id="leogoTransporterAccountsRefresh">↻ REFRESH</button></div><div id="leogoTransporterAccountsArea" style="margin-top:12px"><div class="empty">Loading…</div></div>';
-      page.insertBefore(panel,page.firstElementChild);
-      document.getElementById('leogoTransporterAccountsRefresh').onclick=loadTransporters;
-    }
+    const panel=ensurePanel();
+    if(!panel)return;
     const area=document.getElementById('leogoTransporterAccountsArea');
+    if(!area)return;
     area.innerHTML='<div class="empty">Loading transporter accounts…</div>';
 
     const p=await sb.from('profiles').select('id,full_name,phone,email,location,role,status,created_at,updated_at').eq('role','vehicle_owner').order('created_at',{ascending:false});
@@ -77,8 +83,8 @@
       const st=String(o.status||'pending').toLowerCase();
       const statusClass=st==='active'?'green':st==='rejected'?'red':'';
       return '<div style="border:1px solid #e5e7eb;border-radius:16px;padding:15px;margin-bottom:14px">'+
-        '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h3 style="margin:0">'+esc(o.full_name||'Unnamed transporter')+'</h3><div class="muted">Transporter account · '+esc(new Date(o.created_at).toLocaleString('en-KE'))+'</div></div>'+pill(o.status||'pending',statusClass)+'</div>'+\
-        '<div class="detail"><div><b>PHONE</b>'+esc(o.phone||'')+'</div><div><b>EMAIL</b>'+esc(o.email||'')+'</div><div><b>LOCATION</b>'+esc(o.location||'')+'</div><div><b>ACCOUNT ROLE</b>'+esc(o.role||'vehicle_owner')+'</div><div><b>VEHICLES SUBMITTED</b>'+esc(vs.length)+'</div><div><b>ACCOUNT ID</b>'+esc(o.id)+'</div></div>'+\
+        '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><div><h3 style="margin:0">'+esc(o.full_name||'Unnamed transporter')+'</h3><div class="muted">Transporter account · '+esc(new Date(o.created_at).toLocaleString('en-KE'))+'</div></div>'+pill(o.status||'pending',statusClass)+'</div>'+
+        '<div class="detail"><div><b>PHONE</b>'+esc(o.phone||'')+'</div><div><b>EMAIL</b>'+esc(o.email||'')+'</div><div><b>LOCATION</b>'+esc(o.location||'')+'</div><div><b>ACCOUNT ROLE</b>'+esc(o.role||'vehicle_owner')+'</div><div><b>VEHICLES SUBMITTED</b>'+esc(vs.length)+'</div><div><b>ACCOUNT ID</b>'+esc(o.id)+'</div></div>'+
         '<div class="actions" style="margin-top:13px"><button class="orange" onclick="window.__leogoViewTransporter(\''+esc(o.id)+'\')">VIEW ACCOUNT & DOCUMENTS</button>'+
         (st==='pending'?'<button class="approve" onclick="window.__leogoTransporterStatus(\''+esc(o.id)+'\',\'active\')">APPROVE ACCOUNT</button><button class="danger" onclick="window.__leogoTransporterStatus(\''+esc(o.id)+'\',\'rejected\')">REJECT ACCOUNT</button>':'')+
         (st==='active'?'<button class="danger" onclick="window.__leogoTransporterStatus(\''+esc(o.id)+'\',\'suspended\')">SUSPEND ACCOUNT</button>':'')+
@@ -108,7 +114,7 @@
     if(p.error||!p.data){alert(p.error?.message||'Transporter account could not be loaded.');return;}
     if(v.error){alert('Transporter vehicles could not be loaded: '+v.error.message);return;}
     const o=p.data,vs=v.data||[];
-    let html='<div class="notice"><b>Pre-approval review</b><br>Review the transporter identity, account details and all submitted vehicle/ownership documents before approving the account.</div>'+
+    let html='<div class="notice"><b>Pre-approval review</b><br>Review the transporter identity, account details and all submitted vehicle/ownership documents before approving the account.</div>'+\
       '<div class="detail"><div><b>FULL NAME</b>'+esc(o.full_name)+'</div><div><b>PHONE</b>'+esc(o.phone)+'</div><div><b>EMAIL</b>'+esc(o.email)+'</div><div><b>LOCATION</b>'+esc(o.location)+'</div><div><b>ACCOUNT STATUS</b>'+esc(o.status)+'</div><div><b>REGISTERED</b>'+esc(new Date(o.created_at).toLocaleString('en-KE'))+'</div></div>';
     if(!vs.length)html+='<div class="notice" style="margin-top:14px">This transporter account has no vehicle records attached yet.</div>';
     for(let i=0;i<vs.length;i++){
@@ -122,14 +128,34 @@
     modal.classList.remove('hidden');
   };
 
+  function onTransportPage(){
+    const page=document.getElementById('page-transport');
+    if(!page||!page.classList.contains('active'))return;
+    ensurePanel();
+    loadTransporters();
+  }
+
   document.addEventListener('click',function(e){
     const b=e.target&&e.target.closest?e.target.closest('[data-page="transport"]'):null;
-    if(b)setTimeout(loadTransporters,0);
+    if(b){
+      ensurePanel();
+      setTimeout(onTransportPage,50);
+      setTimeout(onTransportPage,400);
+    }
   },true);
 
+  const observer=new MutationObserver(function(){
+    const page=document.getElementById('page-transport');
+    if(page?.classList.contains('active')&&!document.getElementById('leogoTransporterAccountsPanel')){
+      ensurePanel();
+      setTimeout(loadTransporters,0);
+    }
+  });
+  observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
+
   if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{if(document.getElementById('page-transport')?.classList.contains('active'))loadTransporters();},0));
-  }else if(document.getElementById('page-transport')?.classList.contains('active')){
-    setTimeout(loadTransporters,0);
+    document.addEventListener('DOMContentLoaded',()=>setTimeout(onTransportPage,0));
+  }else{
+    setTimeout(onTransportPage,0);
   }
 })();
