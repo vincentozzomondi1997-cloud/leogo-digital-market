@@ -108,6 +108,8 @@
   };
 
   function start(){
+    var n=document.getElementById('adminName');
+    if(n)n.textContent='LEOGO DIGITAL MARKET · admin';
     ensurePanel();
     var p=document.getElementById('page-transport');
     if(p&&p.classList.contains('active'))loadAccounts();
