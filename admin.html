@@ -82,7 +82,7 @@ function closeModal(){document.getElementById('modal').classList.add('hidden')}
 document.getElementById('password').addEventListener('keydown',e=>{if(e.key==='Enter')login()});identify();
 </script>
 <script>
-/* LEOGO ORDER MANAGEMENT ONLY: do not alter authentication or other modules. */
+/* LEOGO ORDER MANAGEMENT ONLY: do not alter authentication or other admin modules. */
 (function(){
   const orderStatuses=['Order Placed','Confirmed','Preparing','Ready for Pickup','Out for Delivery','Delivered','Cancelled'];
   function orderEsc(v){return typeof esc==='function'?esc(v==null?'':String(v)):String(v==null?'':v).replace(/[&<>\"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[m]));}
@@ -98,4 +98,5 @@ document.getElementById('password').addEventListener('keydown',e=>{if(e.key==='E
 <script src="admin_order_status_fix.js"></script>
 <script src="admin_rfq.js"></script>
 <script src="admin_dispatch.js"></script>
+<script src="admin_transporter_management.js"></script>
 </body></html>
