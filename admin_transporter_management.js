@@ -40,7 +40,7 @@
       if(!uid)return;
       var q=await client.from('profiles').select('full_name,role').eq('id',uid).maybeSingle();
       if(q.data&&document.getElementById('adminName')){
-        document.getElementById('adminName').textContent=(q.data.full_name||'Admin')+' · '+String(q.data.role||'admin');
+        document.getElementById('adminName').textContent='LEOGO DIGITAL MARKET · admin';
       }
     }catch(e){console.warn('Could not refresh admin name',e);}
   }
