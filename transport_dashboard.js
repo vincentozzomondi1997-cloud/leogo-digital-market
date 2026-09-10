@@ -74,5 +74,14 @@
     vehicles=q.data||[];renderVehicles();await loadBookings();
   }
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load);else load();
+  async function start(){
+    const s=await sbx.auth.getSession();
+    if(!s.data?.session)return;
+    const {data:profile}=await sbx.from('profiles').select('role').eq('id',s.data.session.user.id).maybeSingle();
+    const role=String(profile?.role||'').toLowerCase();
+    if(!['vehicle_owner','driver','rider'].includes(role))return;
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load);else load();
+  }
+
+  start();
 })();
