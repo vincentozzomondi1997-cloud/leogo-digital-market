@@ -100,8 +100,6 @@
     };
   }
 
-  // The existing modal buttons call updateOrderStatus() and then reopen the order.
-  // Wait for an active update so stale in-memory order data cannot overwrite the new status.
   if(typeof originalViewOrder==='function'){
     const wrappedView=window.viewOrder;
     window.viewOrder=async function(id){
@@ -110,7 +108,6 @@
     };
   }
 
-  // Catch direct order refreshes from the existing admin page as well.
   const observer=new MutationObserver(()=>addPaymentControls());
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{
     const area=document.getElementById('ordersArea');
@@ -120,5 +117,14 @@
     const area=document.getElementById('ordersArea');
     if(area)observer.observe(area,{childList:true,subtree:true});
     addPaymentControls();
+  }
+
+  // Load the isolated pre-approval review module without changing Admin authentication or core pages.
+  if(!window.__leogoProviderReviewAccessLoader){
+    window.__leogoProviderReviewAccessLoader=true;
+    const s=document.createElement('script');
+    s.src='admin_provider_review_access.js';
+    s.async=false;
+    document.head.appendChild(s);
   }
 })();
