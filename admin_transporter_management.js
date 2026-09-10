@@ -5,15 +5,11 @@
   if(window.__leogoTransporterManagementInstalled)return;
   window.__leogoTransporterManagementInstalled=true;
 
-  const sb=window.__leogoAdminSB;
-  if(!sb){
-    console.warn('LEOGO transporter management: existing admin Supabase client is not ready. No transport/admin functions are changed.');
-    return;
-  }
+  function getSB(){return window.__leogoAdminSB||null;}
   const esc=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
   const pill=(v,k='')=>'<span class="pill '+k+'">'+esc(v)+'</span>';
 
-  async function signedDocs(value){
+  async function signedDocs(sb,value){
     const docs=[];
     const walk=v=>{
       if(v==null)return;
@@ -48,6 +44,8 @@
   }
 
   async function loadTransporters(){
+    const sb=getSB();
+    if(!sb){console.warn('LEOGO transporter management: admin session/client not ready yet.');return;}
     const page=document.getElementById('page-transport');
     if(!page)return;
     let panel=document.getElementById('leogoTransporterAccountsPanel');
@@ -90,6 +88,8 @@
   }
 
   window.__leogoTransporterStatus=async function(id,status){
+    const sb=getSB();
+    if(!sb){alert('Admin session is not ready. Please refresh and sign in again.');return;}
     const label=status==='active'?'approve':status==='rejected'?'reject':status==='suspended'?'suspend':'change';
     if(!confirm('Confirm '+label+' this transporter account?'))return;
     const q=await sb.from('profiles').update({status,updated_at:new Date().toISOString()}).eq('id',id).eq('role','vehicle_owner').select('id,status').maybeSingle();
@@ -99,6 +99,8 @@
   };
 
   window.__leogoViewTransporter=async function(id){
+    const sb=getSB();
+    if(!sb){alert('Admin session is not ready. Please refresh and sign in again.');return;}
     const [p,v]=await Promise.all([
       sb.from('profiles').select('id,full_name,phone,email,location,role,status,created_at,updated_at').eq('id',id).eq('role','vehicle_owner').maybeSingle(),
       sb.from('vehicles').select('id,owner_id,vehicle_type,registration,capacity_kg,approval_status,available,created_at,documents,owner_documents,recommended').eq('owner_id',id).order('created_at',{ascending:false})
@@ -110,7 +112,7 @@
       '<div class="detail"><div><b>FULL NAME</b>'+esc(o.full_name)+'</div><div><b>PHONE</b>'+esc(o.phone)+'</div><div><b>EMAIL</b>'+esc(o.email)+'</div><div><b>LOCATION</b>'+esc(o.location)+'</div><div><b>ACCOUNT STATUS</b>'+esc(o.status)+'</div><div><b>REGISTERED</b>'+esc(new Date(o.created_at).toLocaleString('en-KE'))+'</div></div>';
     if(!vs.length)html+='<div class="notice" style="margin-top:14px">This transporter account has no vehicle records attached yet.</div>';
     for(let i=0;i<vs.length;i++){
-      const x=vs[i],vd=await signedDocs(x.documents),od=await signedDocs(x.owner_documents);
+      const x=vs[i],vd=await signedDocs(sb,x.documents),od=await signedDocs(sb,x.owner_documents);
       html+='<div class="card" style="margin-top:14px"><h3 style="margin-top:0">Vehicle '+(i+1)+'</h3><div class="detail"><div><b>TYPE</b>'+esc(x.vehicle_type)+'</div><div><b>REGISTRATION</b>'+esc(x.registration)+'</div><div><b>CAPACITY</b>'+esc(x.capacity_kg)+' kg</div><div><b>VEHICLE APPROVAL</b>'+esc(x.approval_status)+'</div><div><b>AVAILABLE</b>'+esc(x.available?'Yes':'No')+'</div><div><b>RECOMMENDED</b>'+esc(x.recommended?'Yes':'No')+'</div></div>'+docsHtml('Vehicle Documents',vd,'No vehicle-specific documents submitted for this vehicle.')+docsHtml('Transporter / Owner Documents',od,'No transporter/owner documents submitted.')+'</div>';
     }
     const modal=document.getElementById('modal');
