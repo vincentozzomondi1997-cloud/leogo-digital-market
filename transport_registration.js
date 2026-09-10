@@ -19,13 +19,19 @@
   function renumber(){document.querySelectorAll('#leogoVehicleList .vehicle-entry h3').forEach((h,i)=>h.textContent='Vehicle '+(i+1));}
   function build(){
     const f=document.getElementById('transportFields');if(!f||document.getElementById('leogoVehicleList'))return;
-    const mode=document.getElementById('transport_mode'),oldType=document.getElementById('vehicle_type'),modeGrid=mode?.closest('.grid'),oldGrid=oldType?.closest('.grid');
+    const mode=document.getElementById('transport_mode'),oldType=document.getElementById('vehicle_type'),oldGrid=oldType?.closest('.grid');
+    const modeCell=mode?.closest('div');
     const holder=document.createElement('div');holder.id='leogoVehicleList';
     const title=document.createElement('div');title.innerHTML='<h2 style="margin-top:18px">Vehicles</h2><p class="muted">Add every vehicle you want to offer on LEOGO. Each vehicle will be reviewed separately by Admin.</p>';holder.appendChild(title);holder.appendChild(card());
     const add=document.createElement('button');add.type='button';add.className='secondary';add.textContent='＋ ADD ANOTHER VEHICLE';add.style.marginTop='12px';add.onclick=()=>holder.insertBefore(card(),add);holder.appendChild(add);
-    if(modeGrid)modeGrid.insertAdjacentElement('afterend',holder);else f.insertBefore(holder,f.firstChild);
-    if(oldGrid)oldGrid.remove();
-    const oldTypeCell=oldType?.closest('div');if(oldTypeCell&&modeGrid&&modeGrid.contains(oldTypeCell))oldTypeCell.remove();
+    if(oldGrid){
+      // The original mode and vehicle fields share one grid. Preserve the real mode control before removing that grid.
+      const modeGrid=document.createElement('div');modeGrid.className='grid';
+      if(modeCell)modeGrid.appendChild(modeCell);
+      f.insertBefore(modeGrid,oldGrid);
+      oldGrid.remove();
+      f.insertBefore(holder,modeGrid.nextSibling);
+    }else f.appendChild(holder);
   }
   function settlement(){const val=id=>document.getElementById(id)?.value.trim()||'';if(!val('mpesa_number')&&!val('airtel_number')&&!val('bank_account_number'))throw new Error('Please provide at least one settlement account.');return {preferred_method:val('preferred_method')||null,mpesa_name:val('mpesa_name')||null,mpesa_number:val('mpesa_number')||null,mpesa_paybill_till:val('mpesa_paybill_till')||null,airtel_name:val('airtel_name')||null,airtel_number:val('airtel_number')||null,bank_name:val('bank_name')||null,bank_account_name:val('bank_account_name')||null,bank_account_number:val('bank_account_number')||null};}
   async function upload(uid,file,label){if(!file)return null;if(!['application/pdf','image/jpeg','image/png'].includes(file.type)||file.size>5242880)throw new Error(label+' must be PDF, JPG, JPEG or PNG and no larger than 5 MB.');const ext=(file.name.split('.').pop()||'bin').toLowerCase(),path=uid+'/'+crypto.randomUUID()+'.'+ext,q=await sbx.storage.from('business-documents').upload(path,file,{upsert:false,contentType:file.type});if(q.error)throw new Error('Could not upload '+label+': '+q.error.message);return {label,path,name:file.name,type:file.type,size:file.size};}
