@@ -1,8 +1,17 @@
 /* LEOGO - TRANSPORTER / VEHICLE OWNER ACCOUNT MANAGEMENT
    Isolated from the existing vehicle table, admin navigation and dispatch code. */
 (function(){
+  var transportClient=null;
   function esc(v){return String(v??'').replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]});}
-  function sb(){return window.__leogoAdminSB||null;}
+  async function sb(){
+    if(window.__leogoAdminSB)return window.__leogoAdminSB;
+    if(transportClient)return transportClient;
+    if(!window.supabase||!window.supabase.createClient)return null;
+    transportClient=window.supabase.createClient('https://twpiloiiigdghwcdjbnj.supabase.co','sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX');
+    var session=await transportClient.auth.getSession();
+    if(!session.data||!session.data.session)return null;
+    return transportClient;
+  }
   function pill(v,k){return '<span class="pill '+(k||'')+'">'+esc(v)+'</span>';}
 
   function ensurePanel(){
@@ -24,13 +33,26 @@
     return s==='active'?'green':(s==='rejected'?'red':'');
   }
 
+  async function refreshAdminName(client){
+    try{
+      var session=await client.auth.getSession();
+      var uid=session.data&&session.data.session&&session.data.session.user&&session.data.session.user.id;
+      if(!uid)return;
+      var q=await client.from('profiles').select('full_name,role').eq('id',uid).maybeSingle();
+      if(q.data&&document.getElementById('adminName')){
+        document.getElementById('adminName').textContent=(q.data.full_name||'Admin')+' · '+String(q.data.role||'admin');
+      }
+    }catch(e){console.warn('Could not refresh admin name',e);}
+  }
+
   async function loadAccounts(){
-    var client=sb();
     var panel=ensurePanel();
     if(!panel)return;
     var area=document.getElementById('leogoTransporterAccountsArea');
-    if(!client){area.innerHTML='<div class="empty">Admin session is loading. Please wait a moment and refresh.</div>';return;}
     area.innerHTML='<div class="empty">Loading transporter accounts…</div>';
+    var client=await sb();
+    if(!client){area.innerHTML='<div class="empty">Admin session is loading. Please sign in and refresh this section.</div>';return;}
+    await refreshAdminName(client);
 
     var owners=await client.from('profiles').select('id,full_name,phone,email,location,role,status,created_at').eq('role','vehicle_owner').order('created_at',{ascending:false});
     if(owners.error){area.innerHTML='<div class="msg error">Could not load transporter accounts: '+esc(owners.error.message)+'</div>';return;}
@@ -59,7 +81,7 @@
   }
 
   window.leogoTransporterAccountStatus=async function(id,status){
-    var client=sb();
+    var client=await sb();
     if(!client){alert('Admin session is not ready. Please refresh the Admin page.');return;}
     if(!confirm('Confirm this transporter account change?'))return;
     var q=await client.from('profiles').update({status:status,updated_at:new Date().toISOString()}).eq('id',id).eq('role','vehicle_owner');
@@ -68,7 +90,7 @@
   };
 
   window.leogoViewTransporterAccount=async function(id){
-    var client=sb();
+    var client=await sb();
     if(!client){alert('Admin session is not ready. Please refresh the Admin page.');return;}
     var r=await client.from('profiles').select('id,full_name,phone,email,location,role,status,created_at').eq('id',id).eq('role','vehicle_owner').maybeSingle();
     var v=await client.from('vehicles').select('id,owner_id,vehicle_type,registration,capacity_kg,approval_status,available,documents,owner_documents,recommended').eq('owner_id',id).order('created_at',{ascending:false});
