@@ -21,3 +21,52 @@
   async function start(){const s=await sbx.auth.getSession();if(!s.data?.session)return;const {data:profile}=await sbx.from('profiles').select('role').eq('id',s.data.session.user.id).maybeSingle();const role=String(profile?.role||'').toLowerCase();if(!['vehicle_owner','driver','rider'].includes(role))return;if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load);else load();}
   start();
 })();
+
+/* LEOGO TRANSPORT REQUEST DETAILS - safe read-only customer request viewer. */
+(function(){
+  if(window.__leogoTransportRequestDetailsInstalled)return;
+  window.__leogoTransportRequestDetailsInstalled=true;
+  const URL='https://twpiloiiigdghwcdjbnj.supabase.co',KEY='sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX';
+  const sb=window.supabase.createClient(URL,KEY);
+  const esc=v=>String(v??'').replace(/[&<>\'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
+  const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const label=(name,value)=>'<div style="padding:10px 0;border-bottom:1px solid #eef0f4"><div style="font-size:11px;font-weight:800;color:#667085;text-transform:uppercase">'+name+'</div><div style="margin-top:3px;white-space:pre-wrap">'+esc(value||'—')+'</div></div>';
+  function mapLink(labelText,url,lat,lng){
+    const href=url || (Number.isFinite(Number(lat))&&Number.isFinite(Number(lng))?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(lat+','+lng):'');
+    return href?'<a href="'+esc(href)+'" target="_blank" rel="noopener" class="btn secondary" style="text-decoration:none">📍 OPEN '+labelText+' IN MAPS</a>':'';
+  }
+  function close(){document.getElementById('tdRequestDetailsModal')?.remove();}
+  async function open(id){
+    const sess=await sb.auth.getSession();
+    const uid=sess.data?.session?.user?.id;
+    if(!uid){alert('Your transporter session has expired. Please log in again.');return;}
+    const q=await sb.from('transport_requests').select('id,pickup_location,destination,status,price,created_at,transport_service,other_service,preferred_vehicle_category,preferred_date,preferred_time,timing_type,after_period_value,after_period_unit,urgency,passenger_count,cargo_quantity,cargo_description,description,notes,status_note,contact_phone,point_a_location_link,point_a_lat,point_a_lng,point_b_location_link,point_b_lat,point_b_lng').eq('id',id).eq('driver_id',uid).maybeSingle();
+    if(q.error||!q.data){alert(q.error?.message||'This transport request is no longer available to this transporter.');return;}
+    const x=q.data;
+    const timing=x.timing_type==='Scheduled'&&x.preferred_date?x.preferred_date+' '+String(x.preferred_time||'').slice(0,5):x.timing_type==='After a period'?'After '+(x.after_period_value||'')+' '+(x.after_period_unit||''):'As soon as possible';
+    close();
+    const m=document.createElement('div');m.id='tdRequestDetailsModal';m.className='td-modal';
+    m.innerHTML='<div class="td-modal-card"><div class="td-head"><div><div style="font-size:11px;font-weight:900;color:#ff7a00">CUSTOMER TRANSPORT REQUEST</div><h2 style="margin:3px 0;color:#07152f">Request #'+esc(String(x.id).slice(0,8))+'</h2><div class="muted">Full request information submitted by the customer.</div></div><button class="btn secondary" id="tdRequestClose">✕</button></div>'+
+      '<div class="td-card" style="margin-top:14px;background:#f8fafc"><h3>📍 LOCATIONS</h3>'+label('Pickup / Point A',x.pickup_location)+label('Destination / Point B',x.destination)+'<div class="td-actions">'+mapLink('PICKUP',x.point_a_location_link,x.point_a_lat,x.point_a_lng)+mapLink('DESTINATION',x.point_b_location_link,x.point_b_lat,x.point_b_lng)+'</div></div>'+ 
+      '<div class="td-card"><h3>🚚 TRANSPORT</h3>'+label('Service requested',x.transport_service==='Other'?(x.other_service||'Other'):x.transport_service)+label('Preferred vehicle',x.preferred_vehicle_category)+label('Timing',timing)+label('Urgency',x.urgency)+'</div>'+ 
+      '<div class="td-card"><h3>👥 PASSENGERS & CARGO</h3>'+label('Passengers',x.passenger_count)+label('Quantity',x.cargo_quantity)+label('What is being carried',x.cargo_description)+label('Additional instructions',x.description||x.notes)+'</div>'+ 
+      '<div class="td-card"><h3>📞 CUSTOMER CONTACT</h3>'+label('Phone number',x.contact_phone)+'<div class="td-actions"><a class="btn orange" href="tel:'+esc(x.contact_phone||'')+'" style="text-decoration:none">📞 CALL CUSTOMER</a><a class="btn secondary" href="https://wa.me/'+esc(String(x.contact_phone||'').replace(/[^0-9]/g,''))+'" target="_blank" rel="noopener" style="text-decoration:none">💬 WHATSAPP</a></div></div>'+ 
+      '<div class="td-card"><h3>📋 REQUEST STATUS</h3>'+label('Status',x.status)+label('LEOGO status note',x.status_note)+label('Request amount',money(x.price))+label('Submitted',new Date(x.created_at).toLocaleString('en-KE'))+'</div>'+ 
+      '<div class="td-actions" style="justify-content:flex-end"><button class="btn secondary" id="tdRequestDone">CLOSE</button></div></div>';
+    document.body.appendChild(m);m.onclick=e=>{if(e.target===m)close();};document.getElementById('tdRequestClose').onclick=close;document.getElementById('tdRequestDone').onclick=close;
+  }
+  function installButtons(){
+    const body=document.getElementById('tdBookingRows');if(!body)return;
+    body.querySelectorAll('tr').forEach(row=>{
+      const action=row.querySelector('[data-book-actions]');if(!action||action.querySelector('[data-view-request]'))return;
+      const id=action.getAttribute('data-book-actions');
+      const b=document.createElement('button');b.className='btn secondary';b.type='button';b.setAttribute('data-view-request',id);b.textContent='VIEW REQUEST';b.onclick=()=>open(id);action.insertBefore(b,action.firstChild);
+    });
+  }
+  function start(){
+    const body=document.getElementById('tdBookingRows');
+    if(!body){setTimeout(start,300);return;}
+    installButtons();new MutationObserver(installButtons).observe(body,{childList:true,subtree:true});
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})();
