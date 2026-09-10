@@ -6,7 +6,10 @@
 
   const URL='https://twpiloiiigdghwcdjbnj.supabase.co';
   const KEY='sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX';
-  const sb=window.__leogoAdminSB||window.supabase.createClient(URL,KEY);
+  // Use this module's own Supabase client. The main admin.html login uses its own client,
+  // while admin_login_guard.js maintains a separate helper client. Sharing that helper
+  // here caused the assignment panel to wait on a session that was not the active login.
+  const sb=window.supabase.createClient(URL,KEY);
   const esc=v=>String(v??'').replace(/[&<>\'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
   const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{minimumFractionDigits:0,maximumFractionDigits:2});
   const pill=(v,k='')=>'<span class="pill '+k+'">'+esc(v)+'</span>';
@@ -80,7 +83,7 @@
     if(!(await sessionOk())){area.innerHTML='<div class="empty">Admin login required.</div>';return;}
     area.innerHTML='<div class="empty">Loading transport bookings…</div>';
     const [rq,vq]=await Promise.all([
-      sb.from('transport_requests').select('id,customer_id,driver_id,vehicle_id,pickup_location,destination,status,price,created_at').order('created_at',{ascending:false}).limit(100),
+      sb.from('transport_requests').select('id,customer_id,driver_id,vehicle_id,pickup_location,destination,status,price,created_at,transport_service,other_service,point_a_location_link,point_a_lat,point_a_lng,point_b_location_link,point_b_lat,point_b_lng,contact_phone,id_number,timing_type,preferred_date,preferred_time,after_period_value,after_period_unit,urgency,passenger_count,cargo_quantity,cargo_description,description,status_note,status_updated_at,preferred_vehicle_category').order('created_at',{ascending:false}).limit(100),
       sb.from('vehicles').select('id,owner_id,vehicle_type,registration,capacity_kg,approval_status,available').eq('approval_status','approved').eq('available',true).order('created_at',{ascending:false})
     ]);
     if(rq.error){area.innerHTML='<div class="notice error">'+esc(rq.error.message)+'</div>';return;}
@@ -98,9 +101,20 @@
       const cust=cm.get(req.customer_id)||{};const curDriver=pm.get(req.driver_id);const curVehicle=vehicles.find(x=>x.id===req.vehicle_id);
       const freeVehicles=vehicles.filter(v=>!active.includes(v.id)||v.id===req.vehicle_id);
       const options=freeVehicles.map(v=>{const p=pm.get(v.owner_id);return '<option value="'+esc(v.id)+'" '+(v.id===req.vehicle_id?'selected':'')+'>'+esc(p?.full_name||v.owner_id)+' · '+esc(v.vehicle_type||'Vehicle')+' · '+esc(v.registration||'')+'</option>'}).join('');
+      const mapLink=(label,url)=>url?'<a class="btn light" style="display:inline-block;margin-top:6px;text-decoration:none" href="'+esc(url)+'" target="_blank" rel="noopener">'+label+'</a>':'';
       return '<div style="border:1px solid #e5e7eb;border-radius:15px;padding:14px;margin-bottom:12px">'+
         '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><b>#'+esc(String(req.id).slice(0,8))+'</b> <span class="pill blue">TRANSPORT</span><div class="muted">'+esc(new Date(req.created_at).toLocaleString('en-KE'))+'</div></div>'+pill(req.status||'Requested',String(req.status||'').toLowerCase()==='assigned'?'green':'')+'</div>'+ 
-        '<div class="detail"><div><b>CUSTOMER</b>'+esc(cust.full_name||req.customer_id||'')+'<br>'+esc(cust.phone||'')+'</div><div><b>ROUTE</b>'+esc(req.pickup_location||'')+' → '+esc(req.destination||'')+'</div><div><b>PRICE</b>'+money(req.price)+'</div><div><b>CURRENT ASSIGNMENT</b>'+esc(curDriver?.full_name||'Unassigned')+(curVehicle?' · '+esc(curVehicle.registration||curVehicle.vehicle_type):'')+'</div></div>'+ 
+        '<div class="detail">'+
+        '<div><b>CUSTOMER</b>'+esc(cust.full_name||req.customer_id||'')+'<br>'+esc(req.contact_phone||cust.phone||'')+'</div>'+ 
+        '<div><b>SERVICE</b>'+esc(req.transport_service||'Transport')+(req.other_service?' — '+esc(req.other_service):'')+'<br>Preferred vehicle: '+esc(req.preferred_vehicle_category||'LEOGO chooses')+'</div>'+ 
+        '<div><b>POINT A</b>'+esc(req.pickup_location||'')+'<br>'+mapLink('OPEN POINT A MAP',req.point_a_location_link)+'</div>'+ 
+        '<div><b>POINT B</b>'+esc(req.destination||'')+'<br>'+mapLink('OPEN POINT B MAP',req.point_b_location_link)+'</div>'+ 
+        '<div><b>WHEN / URGENCY</b>'+esc(req.timing_type||'Now')+(req.preferred_date?' · '+esc(req.preferred_date):'')+(req.preferred_time?' '+esc(String(req.preferred_time).slice(0,5)):'')+(req.after_period_value?' · After '+esc(req.after_period_value)+' '+esc(req.after_period_unit||''):'')+'<br>'+esc(req.urgency||'Normal')+'</div>'+ 
+        '<div><b>PASSENGERS / CARGO</b>'+esc(req.passenger_count??'—')+' passengers · '+esc(req.cargo_quantity??'—')+' qty<br>'+esc(req.cargo_description||'')+'</div>'+ 
+        '<div><b>DESCRIPTION</b>'+esc(req.description||req.notes||'No additional instructions')+'</div>'+ 
+        '<div><b>ID NUMBER</b>'+esc(req.id_number||'Not provided')+'</div>'+ 
+        '<div><b>CURRENT ASSIGNMENT</b>'+esc(curDriver?.full_name||'Unassigned')+(curVehicle?' · '+esc(curVehicle.registration||curVehicle.vehicle_type):'')+'</div>'+ 
+        '</div>'+ 
         (options?'<div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-top:12px"><div><label>Assign Driver / Vehicle</label><select id="transportAssign_'+esc(req.id)+'">'+options+'</select></div><button class="orange" onclick="window.__leogoAssignTransport(\''+esc(req.id)+'\',this)">'+(req.driver_id?'REASSIGN':'ASSIGN')+'</button></div>':'<div class="notice" style="margin-top:12px">No approved and available vehicle is currently available for assignment.</div>')+
       '</div>';
     }).join('');
