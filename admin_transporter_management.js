@@ -1,17 +1,15 @@
 /* LEOGO ADMIN TRANSPORTER ACCOUNT REVIEW - isolated module.
-   IMPORTANT: this module intentionally reuses the existing admin Supabase client
-   so it cannot create a second auth context or interfere with the working admin
-   transport/vehicle module. */
+   SAFETY: reuse the existing admin Supabase client created by admin_login_guard.js.
+   This module does not create another auth client and does not replace admin navigation. */
 (function(){
   if(window.__leogoTransporterManagementInstalled)return;
   window.__leogoTransporterManagementInstalled=true;
 
-  const client = window.sb || window.supabaseClient || window._supabase || null;
-  if(!client){
-    console.warn('LEOGO transporter management: existing admin Supabase client was not found. Existing transport module left untouched.');
+  const sb=window.__leogoAdminSB;
+  if(!sb){
+    console.warn('LEOGO transporter management: existing admin Supabase client is not ready. No transport/admin functions are changed.');
     return;
   }
-  const sb = client;
   const esc=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
   const pill=(v,k='')=>'<span class="pill '+k+'">'+esc(v)+'</span>';
 
@@ -122,14 +120,10 @@
     modal.classList.remove('hidden');
   };
 
-  const originalGo=window.go;
-  if(typeof originalGo==='function'){
-    window.go=function(page){
-      const r=originalGo.apply(this,arguments);
-      if(page==='transport')setTimeout(loadTransporters,0);
-      return r;
-    };
-  }
+  document.addEventListener('click',function(e){
+    const b=e.target&&e.target.closest?e.target.closest('[data-page="transport"]'):null;
+    if(b)setTimeout(loadTransporters,0);
+  },true);
 
   if(document.readyState==='loading'){
     document.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{if(document.getElementById('page-transport')?.classList.contains('active'))loadTransporters();},0));
