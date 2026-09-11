@@ -1,6 +1,8 @@
 name: Load vehicle image add-on
 on:
-  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/add_vehicle_image_loader.yml'
 permissions:
   contents: write
 jobs:
