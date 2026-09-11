@@ -1,0 +1,31 @@
+name: Load vehicle image add-on
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add loader
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('provider_dashboard.html')
+          s=p.read_text(encoding='utf-8')
+          tag='<script src="transport_vehicle_image.js"></script>'
+          anchor='<script src="transport_quote_workflow.js"></script>'
+          if tag not in s:
+              if anchor not in s:
+                  raise SystemExit('Loader anchor not found')
+              s=s.replace(anchor, tag+'\n'+anchor, 1)
+              p.write_text(s,encoding='utf-8')
+          PY
+      - name: Commit change
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add provider_dashboard.html
+          git diff --cached --quiet || git commit -m 'Load vehicle image add-on in provider dashboard'
+          git push
