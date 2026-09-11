@@ -1,4 +1,4 @@
-/* LEOGO PREMIUM PAYMENT - manual M-Pesa reference submission with protected server-side verification. */
+/* LEOGO PREMIUM PAYMENT - customer M-Pesa reference submission with admin verification. */
 (function(){
   if(window.__leogoPremiumPaymentInstalled)return;
   window.__leogoPremiumPaymentInstalled=true;
@@ -40,17 +40,17 @@
     try{
       const state=await loadState();
       if(state?.status==='active'){
-        const expiry=state.expires_at?new Date(state.expires_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'No expiry';
+        const expiry=state.expires_at?new Date(state.expires_at).toLocaleString('en-KE',{day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit'}):'No expiry';
         box.innerHTML='<div class="notice success"><b>Premium is active.</b><br>'+esc(state.plan_name)+' • KSh '+Number(state.price).toLocaleString()+'<br>Valid until: <b>'+esc(expiry)+'</b></div>';
         return;
       }
       if(state?.status==='pending'){
-        box.innerHTML='<div class="panel" style="background:#fff7ed;border:1px solid #fed7aa"><h4 style="margin:0 0 8px">Complete your payment</h4><p class="muted" style="margin:0 0 10px">Pay <b>KSh '+Number(state.price).toLocaleString()+'</b> to the LEOGO M-Pesa Till below, then enter the M-Pesa transaction code.</p><div style="font-size:24px;font-weight:950;letter-spacing:1px;margin:8px 0">Till: '+till+'</div><div class="field" style="margin-top:10px"><label>M-Pesa transaction code</label><input id="lpmReference" maxlength="40" autocomplete="off" placeholder="e.g. QGH7ABC123"></div><div id="lpmMsg"></div><button class="btn orange" id="lpmSubmit" style="width:100%;margin-top:8px">I HAVE PAID — SUBMIT REFERENCE</button></div>';
+        box.innerHTML='<div class="panel" style="background:#fff7ed;border:1px solid #fed7aa"><h4 style="margin:0 0 8px">Payment confirmation</h4><p class="muted" style="margin:0 0 10px">Pay <b>KSh '+Number(state.price).toLocaleString()+'</b> to the LEOGO M-Pesa Till below. After payment, paste or type your M-Pesa transaction reference in the box and mark it as paid. Your reference will be sent to LEOGO Admin for verification.</p><div style="font-size:24px;font-weight:950;letter-spacing:1px;margin:8px 0">Till: '+till+'</div><div class="field" style="margin-top:10px"><label for="lpmReference">M-Pesa transaction reference</label><input id="lpmReference" maxlength="40" autocomplete="off" placeholder="Paste or type M-Pesa code (e.g. QGH7ABC123)"></div><div id="lpmMsg"></div><button class="btn orange" id="lpmSubmit" style="width:100%;margin-top:8px">✓ I HAVE PAID — SEND TO ADMIN</button><div class="muted" style="font-size:12px;margin-top:8px">Your membership will only become active after an Admin confirms the payment reference.</div></div>';
         document.getElementById('lpmSubmit').onclick=()=>submitReference(state.id);
         return;
       }
       if(state?.status==='rejected'){
-        box.innerHTML='<div class="notice error"><b>Previous payment was not approved.</b> You can choose a Premium plan again below.</div>';
+        box.innerHTML='<div class="notice error"><b>Payment not approved.</b><br>The submitted payment reference was not approved by LEOGO Admin. Please choose a Premium plan again if you still want access.</div>';
         return;
       }
       box.innerHTML='';
@@ -60,14 +60,14 @@
   async function submitReference(membershipId){
     const input=document.getElementById('lpmReference'),msg=document.getElementById('lpmMsg'),btn=document.getElementById('lpmSubmit');
     const ref=input?.value.trim().toUpperCase();
-    if(!ref){msg.innerHTML='<div class="notice error">Please enter the M-Pesa transaction code.</div>';return;}
-    btn.disabled=true;btn.textContent='SUBMITTING…';
+    if(!ref){msg.innerHTML='<div class="notice error">Please paste or type your M-Pesa transaction reference first.</div>';return;}
+    btn.disabled=true;btn.textContent='SENDING TO ADMIN…';
     const q=await sb.rpc('submit_premium_payment',{p_membership_id:membershipId,p_reference:ref});
-    if(q.error){btn.disabled=false;btn.textContent='I HAVE PAID — SUBMIT REFERENCE';msg.innerHTML='<div class="notice error">'+esc(q.error.message)+'</div>';return;}
+    if(q.error){btn.disabled=false;btn.textContent='✓ I HAVE PAID — SEND TO ADMIN';msg.innerHTML='<div class="notice error">'+esc(q.error.message)+'</div>';return;}
     lastStateKey='';
     await inject();
     const box=document.getElementById('leogoPremiumPaymentBox');
-    if(box)box.insertAdjacentHTML('afterbegin','<div class="notice success"><b>Payment reference submitted.</b> Your payment is pending LEOGO verification.</div>');
+    if(box)box.insertAdjacentHTML('afterbegin','<div class="notice success"><b>Payment reference sent to LEOGO Admin.</b><br>Your payment is marked as paid/submitted for verification. Premium access will activate after Admin confirms the reference.</div>');
   }
 
   const observer=new MutationObserver(()=>{if(document.getElementById('leogoPremiumModal'))inject();});
