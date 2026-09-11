@@ -5,6 +5,51 @@
   if(window.__leogoCustomerNavigationInstalled)return;
   window.__leogoCustomerNavigationInstalled=true;
 
+  const SB_URL='https://twpiloiiigdghwcdjbnj.supabase.co';
+  const SB_KEY='sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX';
+  const STAFF_ROLES=['admin','manager','supervisor','staff'];
+
+  function getGuardSB(){
+    try{return window.__leogoCustomerGuardSB||(window.__leogoCustomerGuardSB=window.supabase.createClient(SB_URL,SB_KEY));}
+    catch(e){return null;}
+  }
+
+  async function enforceCustomerAccess(){
+    var sb=getGuardSB();
+    if(!sb||!window.supabase)return;
+    try{
+      var sessionResult=await sb.auth.getSession();
+      var session=sessionResult.data&&sessionResult.data.session;
+      if(!session||!session.user)return;
+      var q=await sb.from('profiles').select('role,status').eq('id',session.user.id).maybeSingle();
+      if(q.error||!q.data)return;
+      var role=String(q.data.role||'').toLowerCase();
+      if(STAFF_ROLES.indexOf(role)<0)return;
+
+      // A staff/admin account must never remain authenticated on the customer storefront.
+      await sb.auth.signOut();
+      try{
+        if(window.__leogoCustomerGuardRedirecting)return;
+        window.__leogoCustomerGuardRedirecting=true;
+        window.location.replace('admin.html');
+      }catch(e){}
+    }catch(e){console.warn('LEOGO customer access guard:',e);}
+  }
+
+  // Check an already-existing session immediately and also block staff/admin logins
+  // made from the customer website.
+  enforceCustomerAccess();
+  try{
+    var guardSB=getGuardSB();
+    if(guardSB&&guardSB.auth){
+      guardSB.auth.onAuthStateChange(function(event){
+        if(event==='SIGNED_IN'||event==='INITIAL_SESSION'){
+          setTimeout(enforceCustomerAccess,0);
+        }
+      });
+    }
+  }catch(e){}
+
   function text(el){return String(el?.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();}
   function isPremium(t){return /premium/.test(t) || /18\+/.test(t);}
   function isServices(t){return /\bservices?\b/.test(t) || /service providers?/.test(t);}
@@ -38,7 +83,7 @@
     if(typeof window.openTransportRequests==='function'){window.openTransportRequests();return true;}
     const target=Array.from(document.querySelectorAll('h1,h2,h3,h4,.section-head,.panel'))
       .find(x=>/transport price review|my transport requests|transport/i.test(text(x)));
-    if(target){target.scrollIntoView({behavior:'smooth',block:'start');return true;}
+    if(target){target.scrollIntoView({behavior:'smooth',block:'start'});return true;}
     if(typeof window.filterCategory==='function'){window.filterCategory('Transport');return true;}
     return false;
   }
@@ -74,8 +119,6 @@
     }
   },true);
 
-  // Some customer-dashboard menus are injected after login. Observe them so
-  // Premium/Services/Transport remain connected without changing the dashboard renderer.
   const observer=new MutationObserver(function(){
     document.querySelectorAll('#sideNav button, .side button').forEach(function(b){
       const t=text(b);
