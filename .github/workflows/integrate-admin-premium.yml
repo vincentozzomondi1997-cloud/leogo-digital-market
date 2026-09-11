@@ -1,0 +1,41 @@
+name: Integrate Premium Admin
+on:
+  push:
+    paths:
+      - 'integrate_admin_premium.trigger'
+permissions:
+  contents: write
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Integrate Premium admin module
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          admin = Path('admin.html')
+          text = admin.read_text(encoding='utf-8')
+          marker = '<script src="admin_premium_management.js"></script>'
+          if marker not in text:
+              text = text.replace('</body></html>', marker + '\n</body></html>')
+          admin.write_text(text, encoding='utf-8')
+
+          premium = Path('premium_section.js')
+          if premium.exists():
+              p = premium.read_text(encoding='utf-8')
+              p = p.replace("30 days • recurring plan", "30 days • manual renewal")
+              p = p.replace("(p.plan_code==='monthly'?'30 days • manual renewal':'One-time payment • no recurring charge')", "(p.plan_code==='monthly'?'30 days • manual renewal':p.plan_code==='one_time'?'24 hours • one-time access':(Number(p.duration_days||0)+' days'))")
+              premium.write_text(p, encoding='utf-8')
+
+          trigger = Path('integrate_admin_premium.trigger')
+          if trigger.exists(): trigger.unlink()
+          PY
+      - name: Commit integration
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin.html premium_section.js integrate_admin_premium.trigger
+          git diff --cached --quiet || git commit -m 'Integrate Premium admin management'
+          git push
