@@ -6,11 +6,14 @@
   const URL='https://twpiloiiigdghwcdjbnj.supabase.co';
   const KEY='sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX';
   const sbx=window.supabase.createClient(URL,KEY);
-  const esc=v=>String(v??'').replace(/[&<>\'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
-  const cats=['All','Motorcycle','Passenger Tuk Tuk','Luggage Tuk Tuk','Pickup','Canter','Lorry','Trailer','Other'];
+  const esc=v=>String(v??'').replace(/[&<>\\'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
+  const cats=['All','Motorcycle','Passenger Tuk Tuk','Luggage Tuk Tuk','Van','Taxi','Pickup','Canter','Lorry','Trailer','Other'];
   const serviceTypes=['Parcel Delivery','Passenger Transport','Other'];
   const statusClass=s=>{const x=String(s||'Requested').toLowerCase();return x==='completed'||x==='delivered'?'green':(x==='rejected'||x==='cancelled'?'red':(x==='assigned'||x==='accepted'||x==='in progress'||x==='on the way'||x==='picked up'?'orange':''));};
-  const category=v=>{const x=String(v||'').toLowerCase();if(x.includes('motor')||x.includes('boda'))return 'Motorcycle';if(x.includes('passenger')&&x.includes('tuk'))return 'Passenger Tuk Tuk';if(x.includes('luggage')&&x.includes('tuk'))return 'Luggage Tuk Tuk';if(x.includes('pickup'))return 'Pickup';if(x.includes('canter'))return 'Canter';if(x.includes('lorry')||x.includes('truck'))return 'Lorry';if(x.includes('trailer'))return 'Trailer';return 'Other';};
+  const category=v=>{const x=String(v||'').toLowerCase();if(x.includes('motor')||x.includes('boda'))return 'Motorcycle';if(x.includes('passenger')&&x.includes('tuk'))return 'Passenger Tuk Tuk';if(x.includes('luggage')&&x.includes('tuk'))return 'Luggage Tuk Tuk';if(x.includes('van'))return 'Van';if(x.includes('taxi'))return 'Taxi';if(x.includes('pickup'))return 'Pickup';if(x.includes('canter'))return 'Canter';if(x.includes('lorry')||x.includes('truck'))return 'Lorry';if(x.includes('trailer'))return 'Trailer';return 'Other';};
+  const vehicleImageUrl=path=>path?URL+'/storage/v1/object/public/vehicle-images/'+String(path).split('/').map(encodeURIComponent).join('/'):'';
+  const defaultVehicleEmoji=type=>{const c=category(type);if(c==='Motorcycle')return '🏍️';if(c==='Passenger Tuk Tuk'||c==='Luggage Tuk Tuk')return '🛺';if(c==='Van')return '🚐';if(c==='Taxi')return '🚕';if(c==='Lorry'||c==='Canter')return '🚚';if(c==='Pickup')return '🛻';if(c==='Trailer')return '🚛';return '🚙';};
+  const defaultVehicleMarkup=type=>'<div class="placeholder" data-default-vehicle="1" role="img" aria-label="Default '+esc(category(type))+' image" style="height:100%;min-height:180px;display:flex;align-items:center;justify-content:center;font-size:72px;background:linear-gradient(135deg,#f5f7fb,#e9eef7)">'+defaultVehicleEmoji(type)+'</div>';
   let vehicles=[],active='All';
 
   function inject(){
@@ -31,13 +34,18 @@
     bar.querySelectorAll('button').forEach(b=>b.onclick=()=>{active=b.dataset.cat;render();});
     const list=active==='All'?vehicles:vehicles.filter(v=>category(v.vehicle_type)===active);
     if(!list.length){grid.innerHTML='<div class="empty">No approved vehicles are currently available in this category.</div>';return;}
-    grid.innerHTML=list.map(v=>'<article class="product"><div class="product-img"><div class="placeholder">🚚</div></div><div class="product-body"><div class="pill orange">'+esc(category(v.vehicle_type))+'</div><h3 style="margin-top:8px">'+esc(v.vehicle_type)+'</h3><div class="product-meta">'+esc(v.owner_name)+' · '+esc(v.owner_location)+'</div><div class="product-meta">'+(v.registration?'Registration: '+esc(v.registration)+' · ':'')+(v.capacity_kg!=null?'Capacity: '+esc(v.capacity_kg)+' kg':'')+'</div><div class="product-actions" style="margin-top:10px"><button class="btn orange" data-book="'+esc(v.vehicle_id)+'">Request Transport</button></div></div></article>').join('');
+    grid.innerHTML=list.map(v=>{
+      const src=vehicleImageUrl(v.vehicle_image_path);
+      const image=src?'<img data-vehicle-image src="'+esc(src)+'" alt="'+esc(category(v.vehicle_type))+' vehicle" loading="lazy" style="width:100%;height:100%;min-height:180px;object-fit:cover;display:block">':defaultVehicleMarkup(v.vehicle_type);
+      return '<article class="product"><div class="product-img" style="overflow:hidden">'+image+'</div><div class="product-body"><div class="pill orange">'+esc(category(v.vehicle_type))+'</div><h3 style="margin-top:8px">'+esc(v.vehicle_type)+'</h3><div class="product-meta">'+esc(v.owner_name)+' · '+esc(v.owner_location)+'</div><div class="product-meta">'+(v.registration?'Registration: '+esc(v.registration)+' · ':'')+(v.capacity_kg!=null?'Capacity: '+esc(v.capacity_kg)+' kg':'')+'</div><div class="product-actions" style="margin-top:10px"><button class="btn orange" data-book="'+esc(v.vehicle_id)+'">Request Transport</button></div></div></article>';
+    }).join('');
+    grid.querySelectorAll('[data-vehicle-image]').forEach(img=>{img.onerror=()=>{const card=img.closest('.product');const type=card?.querySelector('.pill')?.textContent||'Other';img.replaceWith(document.createRange().createContextualFragment(defaultVehicleMarkup(type)));};});
     grid.querySelectorAll('[data-book]').forEach(b=>b.onclick=()=>openBooking(vehicles.find(v=>v.vehicle_id===b.dataset.book)));
   }
 
   async function load(){
     inject();const grid=document.getElementById('leogoTransportGrid');if(!grid)return;grid.innerHTML='<div class="empty">Loading vehicles…</div>';
-    const q=await sbx.rpc('get_public_transport_marketplace');
+    const q=await sbx.rpc('get_public_transport_marketplace_v2');
     if(q.error){grid.innerHTML='<div class="empty">Unable to load transport providers right now.</div>';return;}
     vehicles=q.data||[];render();
   }
