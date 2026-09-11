@@ -82,7 +82,7 @@
     const plans=await getPricing();
     const wrap=document.getElementById('lpPlans');
     if(!plans.length){wrap.innerHTML='<div class="notice error" style="grid-column:1/-1">Premium plans are temporarily unavailable.</div>';return;}
-    wrap.innerHTML=plans.map(p=>'<div class="cat" style="text-align:left;padding:18px;border:2px solid #dbe4f0"><div style="font-weight:900;color:#ff7a00">'+esc(p.plan_name)+'</div><div style="font-size:30px;font-weight:950;margin:6px 0">KSh '+Number(p.price).toLocaleString()+'</div><div class="muted" style="font-size:12px;margin-bottom:12px">'+(p.plan_code==='monthly'?'30 days • recurring plan':'One-time payment • no recurring charge')+'</div><button class="btn orange lpChoose" data-plan="'+esc(p.plan_code)+'" style="width:100%">CHOOSE PLAN</button></div>').join('');
+    wrap.innerHTML=plans.map(p=>'<div class="cat" style="text-align:left;padding:18px;border:2px solid #dbe4f0"><div style="font-weight:900;color:#ff7a00">'+esc(p.plan_name)+'</div><div style="font-size:30px;font-weight:950;margin:6px 0">KSh '+Number(p.price).toLocaleString()+'</div><div class="muted" style="font-size:12px;margin-bottom:12px">'+(p.plan_code==='monthly'?'30 days • manual renewal':p.plan_code==='one_time'?'24 hours • one-time access':(Number(p.duration_days||0)+' days'))+'</div><button class="btn orange lpChoose" data-plan="'+esc(p.plan_code)+'" style="width:100%">CHOOSE PLAN</button></div>').join('');
     wrap.querySelectorAll('.lpChoose').forEach(b=>b.onclick=()=>choosePlan(b.dataset.plan));
   }
 
