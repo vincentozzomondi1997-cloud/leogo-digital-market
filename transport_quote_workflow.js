@@ -13,7 +13,7 @@
   function css(){
     if(document.getElementById('lqStyle'))return;
     const s=document.createElement('style');s.id='lqStyle';
-    s.textContent=`.lq{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;margin:10px 0}.lq h3{margin:0;color:#07152f}.lq-muted{color:#667085;font-size:13px}.lq-total{font-size:19px;font-weight:900;color:#07152f}.lq-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.lq-input{width:100%;padding:10px;border:1px solid #d7dce4;border-radius:9px;box-sizing:border-box}.lq-ok{background:#ecfdf3;color:#166534}.lq-warn{background:#fff7ed;color:#9a3412}.lq-bad{background:#fef2f2;color:#991b1b}`;
+    s.textContent=`.lq{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:14px;margin:10px 0}.lq h3{margin:0;color:#07152f}.lq-muted{color:#667085;font-size:13px}.lq-total{font-size:19px;font-weight:900;color:#07152f}.lq-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.lq-input{width:100%;padding:10px;border:1px solid #d7dce4;border-radius:9px;box-sizing:border-box}.lq-ok{background:#ecfdf3;color:#166534}.lq-warn{background:#fff7ed;color:#9a3412}.lq-bad{background:#fef2f2;color:#991b1b}.lq-modal{position:fixed;inset:0;background:rgba(7,21,47,.62);display:flex;align-items:center;justify-content:center;padding:18px;z-index:10000}.lq-modal-card{width:min(620px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:16px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.25)}.lq-modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.lq-close{border:0;background:#eef3fb;color:#07152f;border-radius:9px;padding:9px 12px;font-weight:900;cursor:pointer}`;
     document.head.appendChild(s);
   }
   function scheduleTransporterRefresh(){
@@ -21,27 +21,34 @@
     transportRefreshTimer=setTimeout(()=>{transportRefreshTimer=null;transporterRefresh()},150);
   }
   function quoteModal(id){
-    const m=document.createElement('div');m.className='modal';m.style.zIndex='10000';
-    m.innerHTML='<div class="modal-card"><div class="modal-head"><div><h2>Submit Transport Price</h2><div class="lq-muted">Enter your transport amount. LEOGO automatically adds a 10% service fee for the customer.</div></div><button class="close" id="lqClose">✕</button></div><div style="margin-top:14px"><label>Transport Amount (KSh)</label><input class="lq-input" id="lqPrice" type="number" min="1" step="0.01" placeholder="e.g. 500"><div class="lq" style="background:#f8fafc;margin-top:12px">Transport amount: <b id="lqBase">KSh 0.00</b><br>LEOGO service fee (10%): <b id="lqFee">KSh 0.00</b><div class="lq-total" style="margin-top:6px">Customer total: <span id="lqTotal">KSh 0.00</span></div></div><div id="lqMsg"></div><div class="lq-actions" style="justify-content:flex-end"><button class="btn secondary" id="lqCancel">CANCEL</button><button class="btn orange" id="lqSubmit">SUBMIT PRICE</button></div></div></div>';
+    css();
+    document.getElementById('lqQuoteModal')?.remove();
+    const m=document.createElement('div');m.id='lqQuoteModal';m.className='lq-modal';
+    m.innerHTML='<div class="lq-modal-card"><div class="lq-modal-head"><div><h2 style="margin:0;color:#07152f">Submit Transport Price</h2><div class="lq-muted" style="margin-top:5px">Enter your transport amount. LEOGO automatically adds a 10% service fee for the customer.</div></div><button type="button" class="lq-close" id="lqClose">✕</button></div><div style="margin-top:14px"><label style="font-weight:800;font-size:13px">Transport Amount (KSh)</label><input class="lq-input" id="lqPrice" type="number" min="1" step="0.01" placeholder="e.g. 500" style="margin-top:6px"><div class="lq" style="background:#f8fafc;margin-top:12px">Transport amount: <b id="lqBase">KSh 0.00</b><br>LEOGO service fee (10%): <b id="lqFee">KSh 0.00</b><div class="lq-total" style="margin-top:6px">Customer total: <span id="lqTotal">KSh 0.00</span></div></div><div id="lqMsg"></div><div class="lq-actions" style="justify-content:flex-end"><button type="button" class="btn secondary" id="lqCancel">CANCEL</button><button type="button" class="btn orange" id="lqSubmit">SUBMIT PRICE</button></div></div></div>';
     document.body.appendChild(m);
     const i=m.querySelector('#lqPrice');
     const recalc=()=>{const n=Number(i.value||0),f=n*.1;m.querySelector('#lqBase').textContent=money(n);m.querySelector('#lqFee').textContent=money(f);m.querySelector('#lqTotal').textContent=money(n+f)};
-    i.oninput=recalc;
-    const close=()=>m.remove();m.querySelector('#lqClose').onclick=close;m.querySelector('#lqCancel').onclick=close;
-    m.querySelector('#lqSubmit').onclick=async()=>{
+    i.addEventListener('input',recalc);
+    const close=()=>m.remove();
+    m.querySelector('#lqClose').addEventListener('click',e=>{e.preventDefault();e.stopPropagation();close()});
+    m.querySelector('#lqCancel').addEventListener('click',e=>{e.preventDefault();e.stopPropagation();close()});
+    m.querySelector('#lqSubmit').addEventListener('click',async e=>{
+      e.preventDefault();e.stopPropagation();
       const n=Number(i.value),msg=m.querySelector('#lqMsg');
-      if(!Number.isFinite(n)||n<=0){msg.className='lq lq-bad';msg.textContent='Enter a valid amount.';return}
+      if(!Number.isFinite(n)||n<=0){msg.className='lq lq-bad';msg.textContent='Enter a valid amount.';i.focus();return}
       const b=m.querySelector('#lqSubmit');b.disabled=true;b.textContent='SUBMITTING…';
-      const q=await sb.rpc('submit_transport_quote',{p_request_id:id,p_price:n});
-      if(q.error){msg.className='lq lq-bad';msg.textContent=q.error.message;b.disabled=false;b.textContent='SUBMIT PRICE';return}
-      msg.className='lq lq-ok';msg.textContent='Price submitted. Customer acceptance is now required.';b.textContent='SUBMITTED';
-      setTimeout(()=>{close();scheduleTransporterRefresh()},700);
-    };
+      try{
+        const q=await sb.rpc('submit_transport_quote',{p_request_id:id,p_price:n});
+        if(q.error){msg.className='lq lq-bad';msg.textContent=q.error.message;b.disabled=false;b.textContent='SUBMIT PRICE';return}
+        msg.className='lq lq-ok';msg.textContent='Price submitted. Customer acceptance is now required.';b.textContent='SUBMITTED';
+        setTimeout(()=>{close();scheduleTransporterRefresh()},700);
+      }catch(err){msg.className='lq lq-bad';msg.textContent=err?.message||'Unable to submit the price. Please try again.';b.disabled=false;b.textContent='SUBMIT PRICE'}
+    });
+    i.focus();
   }
   function syncTransportActions(box,r){
     const status=String(r.status||'').toLowerCase(),quoteStatus=String(r.quote_status||'');
     const acceptButton=box.querySelector('button[data-status="Accepted"]');if(!acceptButton)return;
-    /* Preserve the existing ACCEPT action, but only expose it after customer acceptance. */
     const canAccept=status==='assigned'&&quoteStatus==='accepted';
     acceptButton.style.display=canAccept?'':'none';
     acceptButton.disabled=!canAccept;
@@ -61,7 +68,9 @@
         syncTransportActions(box,r);
         const s=String(r.status||'').toLowerCase(),qs=String(r.quote_status||'');
         if(s==='assigned'&&(qs==='awaiting_rider_quote'||qs==='rejected')){
-          const b=document.createElement('button');b.className='btn orange';b.textContent=qs==='rejected'?'REVISE PRICE':'SUBMIT PRICE';b.setAttribute('data-lq','1');b.onclick=()=>quoteModal(r.id);box.insertBefore(b,box.firstChild);
+          const b=document.createElement('button');b.type='button';b.className='btn orange';b.textContent=qs==='rejected'?'REVISE PRICE':'SUBMIT PRICE';b.setAttribute('data-lq','1');
+          b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();quoteModal(r.id)});
+          box.insertBefore(b,box.firstChild);
         }else if(s==='assigned'&&qs==='awaiting_customer'){
           const x=document.createElement('span');x.className='lq lq-warn';x.style.cssText='margin:0;padding:7px 10px';x.setAttribute('data-lq','1');x.textContent='Awaiting customer acceptance · '+money(r.customer_total);box.insertBefore(x,box.firstChild);
         }else if(s==='assigned'&&qs==='accepted'){
@@ -103,7 +112,7 @@
     if(!host){host=document.createElement('div');host.id='lqCustomer';area.insertBefore(host,area.firstChild)}
     const rows=(q.data||[]).filter(x=>x.price!=null&&['awaiting_customer','accepted','rejected'].includes(String(x.quote_status||'')));
     if(!rows.length){host.innerHTML='';return}
-    host.innerHTML='<div class="lq"><h3>💰 Transport Price Review</h3><div class="lq-muted" style="margin-top:4px">LEOGO adds a 10% service fee to the transporter amount. Transportation cannot start until you accept the amount.</div>'+rows.map(r=>{const qs=String(r.quote_status||''),waiting=qs==='awaiting_customer';return '<div class="lq" style="background:#f8fafc"><b>Request #'+esc(String(r.id).slice(0,8))+'</b><div class="lq-muted">'+esc(r.pickup_location||'')+' → '+esc(r.destination||'')+'</div><div style="margin-top:8px">Transport amount: <b>'+money(r.price)+'</b><br>LEOGO service fee (10%): <b>'+money(r.service_fee)+'</b><div class="lq-total" style="margin-top:5px">Total customer amount: '+money(r.customer_total)+'</div></div>'+(waiting?'<div class="lq-actions"><button class="btn orange" data-accept="'+r.id+'">ACCEPT AMOUNT</button><button class="btn danger" data-reject="'+r.id+'">REJECT AMOUNT</button></div>':qs==='accepted'?'<div class="lq lq-ok">Accepted. The transporter can now start the job.</div>':'<div class="lq lq-bad">Rejected. Waiting for a revised transporter price.</div>')+'</div>'}).join('')+'</div>';
+    host.innerHTML='<div class="lq"><h3>💰 Transport Price Review</h3><div class="lq-muted" style="margin-top:4px">LEOGO adds a 10% service fee to the transporter amount. Transportation cannot start until you accept the amount.</div>'+rows.map(r=>{const qs=String(r.quote_status||''),waiting=qs==='awaiting_customer';return '<div class="lq" style="background:#f8fafc"><b>Request #'+esc(String(r.id).slice(0,8))+'</b><div class="lq-muted">'+esc(r.pickup_location||'')+' → '+esc(r.destination||'')+'</div><div style="margin-top:8px">Transport amount: <b>'+money(r.price)+'</b><br>LEOGO service fee (10%): <b>'+money(r.service_fee)+'</b><div class="lq-total" style="margin-top:5px">Total customer amount: '+money(r.customer_total)+'</div></div>'+(waiting?'<div class="lq-actions"><button type="button" class="btn orange" data-accept="'+r.id+'">ACCEPT AMOUNT</button><button type="button" class="btn danger" data-reject="'+r.id+'">REJECT AMOUNT</button></div>':qs==='accepted'?'<div class="lq lq-ok">Accepted. The transporter can now start the job.</div>':'<div class="lq lq-bad">Rejected. Waiting for a revised transporter price.</div>')+'</div>'}).join('')+'</div>';
     host.querySelectorAll('[data-accept]').forEach(b=>b.onclick=async()=>{b.disabled=true;const x=await sb.rpc('accept_transport_quote',{p_request_id:b.dataset.accept});if(x.error){alert(x.error.message);b.disabled=false;return}customerRefresh()});
     host.querySelectorAll('[data-reject]').forEach(b=>b.onclick=async()=>{b.disabled=true;const x=await sb.rpc('reject_transport_quote',{p_request_id:b.dataset.reject});if(x.error){alert(x.error.message);b.disabled=false;return}customerRefresh()});
   }
@@ -114,7 +123,7 @@
     for(const sel of selects){
       const id=sel.id.replace('transportAssign_',''),parent=sel.closest('.detail')?.parentElement;if(!parent||parent.querySelector('[data-admin-lq]'))continue;
       const box=document.createElement('div');box.className='lq';box.setAttribute('data-admin-lq','1');
-      box.innerHTML='<b>💰 ADMIN PRICE CONTROL</b><div class="lq-muted">Change the transporter price before transport starts. The customer must accept the revised amount.</div><div class="lq-actions"><input class="lq-input" data-admin-input type="number" min="1" step="0.01" placeholder="New amount"><button class="btn orange" data-admin-save>UPDATE PRICE</button></div><div class="lq-muted" data-admin-msg></div>';
+      box.innerHTML='<b>💰 ADMIN PRICE CONTROL</b><div class="lq-muted">Change the transporter price before transport starts. The customer must accept the revised amount.</div><div class="lq-actions"><input class="lq-input" data-admin-input type="number" min="1" step="0.01" placeholder="New amount"><button type="button" class="btn orange" data-admin-save>UPDATE PRICE</button></div><div class="lq-muted" data-admin-msg></div>';
       parent.appendChild(box);
       box.querySelector('[data-admin-save]').onclick=async()=>{
         const n=Number(box.querySelector('[data-admin-input]').value),msg=box.querySelector('[data-admin-msg]');if(!Number.isFinite(n)||n<=0){msg.textContent='Enter a valid amount.';return}
