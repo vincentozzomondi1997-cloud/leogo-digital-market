@@ -43,8 +43,12 @@
     if(document.querySelector('script[data-leogo-premium-payment]'))return;
     const s=document.createElement('script');s.src='premium_payment.js';s.dataset.leogoPremiumPayment='1';s.async=true;document.head.appendChild(s);
   }
+  function loadAcceptanceModule(){
+    if(document.querySelector('script[data-leogo-premium-acceptance]'))return;
+    const s=document.createElement('script');s.src='premium_acceptance_customer.js';s.dataset.leogoPremiumAcceptance='1';s.async=true;document.head.appendChild(s);
+  }
 
   const observer=new MutationObserver(injectButton);
-  function start(){loadPaymentModule();observer.observe(document.body,{childList:true,subtree:true});injectButton();}
+  function start(){loadPaymentModule();loadAcceptanceModule();observer.observe(document.body,{childList:true,subtree:true});injectButton();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
