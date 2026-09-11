@@ -20,14 +20,14 @@
 </div>
 <div class="field"><label>Description — Premium customers only</label><textarea id="description" maxlength="2000" placeholder="Tell Premium customers about yourself."></textarea></div>
 <div class="grid">
-<div class="field"><label>Profile Picture — Public *</label><input id="profilePicture" type="file" accept="image/jpeg,image/png,image/webp"><img id="profilePreview" class="preview"></div>
-<div class="field"><label>Passport Photo — Admin + Premium customers *</label><input id="passportPhoto" type="file" accept="image/jpeg,image/png,image/webp"></div>
-<div class="field"><label>ID Picture — Admin only *</label><input id="idPicture" type="file" accept="image/jpeg,image/png,image/webp"></div>
+<div class="field"><label>Profile Picture — Public *</label><input id="profilePicture" type="file" accept="image/jpeg,image/png,image/webp,image/jfif"><img id="profilePreview" class="preview"></div>
+<div class="field"><label>Passport Photo — Admin + Premium customers *</label><input id="passportPhoto" type="file" accept="image/jpeg,image/png,image/webp,image/jfif"></div>
+<div class="field"><label>ID Picture — Admin only *</label><input id="idPicture" type="file" accept="image/jpeg,image/png,image/webp,image/jfif"></div>
 </div>
 <div class="row" style="margin-top:14px"><div class="muted">Sensitive identity documents are stored privately. The profile picture is the only application image intended for public listing.</div><button id="saveBtn" class="btn light">SAVE APPLICATION</button></div><div id="saveMsg"></div>
 </div>
 <div class="card"><h2 style="margin-top:0">Monthly Listing Payment</h2><div id="pricingBox" class="notice">Loading current Premium Profile listing price…</div><div class="field"><label>M-Pesa Payment Reference</label><input id="paymentRef" maxlength="40" placeholder="Enter your M-Pesa transaction reference"></div><button id="paymentBtn" class="btn orange">SUBMIT PAYMENT REFERENCE</button><div id="paymentMsg"></div></div>
 <div class="card"><h2 style="margin-top:0">Review Result</h2><div id="reviewBox" class="notice">No application submitted yet.</div></div>
-<div class="card"><h2 style="margin-top:0">After Approval</h2><div class="grid"><div class="notice">🟢 Update your availability from your dashboard.</div><div class="notice">💬 See customer interest and booking requests.</div><div class="notice">👤 Review the requesting customer's permitted profile information before accepting.</div><div class="notice">📅 Accept at most one booking per day.</div></div><p class="muted">Booking and interest controls will be enabled here as the next step of the Premium Profile build.</p></div>
+<div class="card"><h2 style="margin-top:0">After Approval</h2><div class="grid"><div class="notice">🟢 Update your availability from your dashboard.</div><div class="notice">💬 See customer interest and booking requests.</div><div class="notice">👤 Review the requesting customer's permitted profile information before accepting.</div><div class="notice">📅 Acceptance limits are enforced by LEOGO.</div></div><p class="muted">Owner booking and interest controls are available from the separate Premium Profile Owner Dashboard.</p></div>
 </section></main>
-<script src="premium_profile_dashboard.js"></script></body></html>
+<script src="premium_profile_upload_fix.js"></script><script src="premium_profile_dashboard.js"></script></body></html>
