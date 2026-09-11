@@ -9,6 +9,7 @@
   const esc=v=>String(v??'').replace(/[&<>\'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
   let lastKey='';
   let busy=false;
+  let rendering=false;
 
   async function session(){return (await sb.auth.getSession()).data?.session||null;}
   async function membership(){const s=await session();if(!s)return null;const q=await sb.from('premium_memberships').select('id,plan_code,plan_name,price,duration_days,status,created_at,expires_at,refund_status,refund_amount,refund_reason,refund_reference').eq('user_id',s.user.id).order('created_at',{ascending:false}).limit(1).maybeSingle();return q.error?null:q.data;}
@@ -20,9 +21,12 @@
   function renderMessage(html){const box=document.getElementById('leogoPremiumIdentityBox');if(box)box.innerHTML=html;}
 
   async function inject(){
+    if(rendering || busy)return;
     const area=findArea();if(!area)return;
+    rendering=true;
     let box=document.getElementById('leogoPremiumIdentityBox');
     if(!box){box=document.createElement('div');box.id='leogoPremiumIdentityBox';box.style.cssText='margin-top:14px';area.appendChild(box);}
+    try{
     const m=await membership();if(!m){box.innerHTML='';return;}
     const p=await paymentFor(m.id);const i=await identityFor(m.id);
     const key=[m.id,m.status,p?.id||'',p?.status||'',i?.status||'',i?.updated_at||'',m.refund_status||''].join('|');
@@ -39,6 +43,7 @@
     }
     box.innerHTML=formHtml();
     bindForm(m.id);
+    } finally { rendering=false; }
   }
 
   function formHtml(){return '<div class="panel" style="background:#fff;border:1px solid #dbe3ef"><h4 style="margin:0 0 6px">Premium identity verification</h4><p class="muted" style="margin:0 0 10px;font-size:13px">Before activation, LEOGO Admin must review your identity. These identity details and uploaded documents are private and are not displayed in Premium discovery.</p><div class="field"><label>Full name as it appears on your ID *</label><input id="lpiName" maxlength="120" autocomplete="name" placeholder="Name exactly as on ID"></div><div class="field"><label>Phone number *</label><input id="lpiPhone" maxlength="30" autocomplete="tel" placeholder="e.g. 0712 345 678"></div><div class="field"><label>Identification type *</label><select id="lpiIdType"><option value="National ID">National ID</option><option value="Passport">Passport</option><option value="Alien ID">Alien ID</option><option value="Other">Other</option></select></div><div class="field"><label>Identification number *</label><input id="lpiIdNumber" maxlength="60" autocomplete="off" placeholder="Enter ID / passport number"></div><div class="field"><label>Picture of ID / passport document <span class="muted">(recommended)</span></label><input id="lpiIdFile" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"><div class="muted" style="font-size:12px;margin-top:4px">Private upload • maximum 5 MB.</div></div><div class="field"><label>Profile picture *</label><input id="lpiProfileFile" type="file" accept="image/jpeg,image/png,image/webp"><div class="muted" style="font-size:12px;margin-top:4px">This is your profile photo for your Premium account • maximum 5 MB.</div></div><div class="field"><label>LEOGO username *</label><input id="lpiUsername" maxlength="60" autocomplete="username" placeholder="Your LEOGO username"></div><div class="notice" style="font-size:12px">By submitting, you confirm that these details belong to you and authorize LEOGO to use them only for Premium identity/payment verification and account safety. Access to the identity records is restricted to authorized LEOGO staff.</div><div id="lpiMsg"></div><button class="btn orange" id="lpiSubmit" style="width:100%">SUBMIT IDENTITY FOR ADMIN REVIEW</button></div>';}
@@ -88,13 +93,14 @@
       const profilePath=await upload(profileFile,'profile',s.user.id,mid);
       const q=await sb.rpc('submit_premium_identity',{p_membership_id:mid,p_full_name_as_id:name,p_phone_number:phone,p_id_type:type,p_id_number:number,p_id_document_path:idPath,p_profile_photo_path:profilePath,p_leogo_username:username});
       if(q.error)throw q.error;
-      lastKey='';await inject();
-      renderMessage('<div class="notice success"><b>Identity submitted to LEOGO Admin.</b><br>Your payment and identity are now waiting for administrative review. You will not be activated until both are approved.</div>');
+      lastKey='submitted';
+      const currentBox=document.getElementById('leogoPremiumIdentityBox');
+      if(currentBox)currentBox.innerHTML='<div class="notice success"><b>Identity submitted to LEOGO Admin.</b><br>Your payment and identity are now waiting for administrative review. You will not be activated until both are approved.</div>';
     }catch(e){msg.innerHTML='<div class="notice error">'+esc(e.message||'Unable to submit identity right now.')+'</div>';}
     finally{busy=false;btn.disabled=false;btn.textContent='SUBMIT IDENTITY FOR ADMIN REVIEW';}
   }
 
-  const observer=new MutationObserver(()=>{if(document.getElementById('leogoPremiumModal'))inject();});
+  const observer=new MutationObserver(()=>{if(document.getElementById('leogoPremiumModal')&&!busy&&!rendering)inject();});
   function start(){observer.observe(document.body,{childList:true,subtree:true});inject();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
