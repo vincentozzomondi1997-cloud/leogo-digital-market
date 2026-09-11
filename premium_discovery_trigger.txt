@@ -1,1 +1,0 @@
-Temporary trigger for Premium discovery integration. Remove after completion.
