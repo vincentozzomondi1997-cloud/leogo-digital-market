@@ -11,25 +11,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inject Premium identity script
+      - name: Repair Premium identity script integration
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
           p=Path('index.html')
           s=p.read_text()
+          s=re.sub(r'<script\s+src=["\']premium_identity(?:_fix)?\.js["\']\s*></script>\s*', '', s, flags=re.I)
           tag='<script src="premium_identity.js"></script>'
           if tag not in s:
-              marker='</body>'
-              if marker not in s:
+              if '</body>' not in s:
                   raise SystemExit('index.html closing body tag not found')
-              s=s.replace(marker, tag+'\n'+marker, 1)
-              p.write_text(s)
+              s=s.replace('</body>', tag+'\n</body>', 1)
+          p.write_text(s)
           Path('integrate_premium_identity.trigger').unlink(missing_ok=True)
+          Path('.github/workflows/integrate-identity-fix.yml').unlink(missing_ok=True)
+          Path('integrate_identity_fix.trigger').unlink(missing_ok=True)
           PY
       - name: Commit integration
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html integrate_premium_identity.trigger
-          git diff --cached --quiet || git commit -m 'Integrate Premium identity module'
+          git add -A
+          git diff --cached --quiet || git commit -m 'Repair Premium identity script integration'
           git push
