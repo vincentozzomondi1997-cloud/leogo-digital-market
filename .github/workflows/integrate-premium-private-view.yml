@@ -1,0 +1,34 @@
+name: Integrate Premium Private Viewer Fix
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'premium_private_view_fix.js'
+      - '.github/workflows/integrate-premium-private-view.yml'
+permissions:
+  contents: write
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add viewer script to admin
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('admin.html')
+          s=p.read_text(encoding='utf-8')
+          tag='<script src="premium_private_view_fix.js"></script>'
+          if tag not in s:
+              s=s.replace('</body></html>', tag+'\n</body></html>')
+              p.write_text(s,encoding='utf-8')
+          PY
+      - name: Remove temporary workflow
+        run: rm -f .github/workflows/integrate-premium-private-view.yml
+      - name: Commit integration
+        run: |
+          git config user.name 'LEOGO Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add admin.html .github/workflows/integrate-premium-private-view.yml
+          git commit -m 'Fix Premium private document viewer' || exit 0
+          git push
