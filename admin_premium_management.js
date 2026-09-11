@@ -98,4 +98,15 @@
     alert('Premium price updated successfully.');
     await loadPremiumAdmin();
   };
+
+  function installPremiumNavigation(){
+    var page=document.getElementById('page-premium');
+    if(!page||page.__premiumObserverInstalled)return;
+    page.__premiumObserverInstalled=true;
+    var observer=new MutationObserver(function(){
+      if(page.classList.contains('active'))loadPremiumAdmin();
+    });
+    observer.observe(page,{attributes:true,attributeFilter:['class']});
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installPremiumNavigation);else installPremiumNavigation();
 })();
