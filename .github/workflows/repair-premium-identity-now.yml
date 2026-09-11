@@ -1,0 +1,35 @@
+name: One-time Premium identity repair
+on:
+  push:
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repair customer identity integration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text()
+          s=re.sub(r'<script\s+src=["\']premium_identity(?:_fix)?\.js["\']\s*></script>\s*', '', s, flags=re.I)
+          tag='<script src="premium_identity.js"></script>'
+          if tag not in s:
+              s=s.replace('</body>',tag+'\n</body>',1)
+          p.write_text(s)
+          Path('integrate_premium_identity.trigger').unlink(missing_ok=True)
+          Path('.github/workflows/integrate-premium-identity.yml').unlink(missing_ok=True)
+          Path('.github/workflows/integrate-identity-fix.yml').unlink(missing_ok=True)
+          Path('.github/workflows/repair-premium-identity-now.yml').unlink(missing_ok=True)
+          Path('integrate_identity_fix.trigger').unlink(missing_ok=True)
+          PY
+      - name: Commit and push repair
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet || git commit -m 'Fix Premium identity customer integration'
+          git push
