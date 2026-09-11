@@ -1,0 +1,34 @@
+name: Integrate Admin Premium identity review
+on:
+  push:
+    paths:
+      - 'integrate_admin_premium_identity.trigger'
+permissions:
+  contents: write
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inject admin identity review module
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('admin.html')
+          s=p.read_text()
+          tag='<script src="admin_premium_identity.js"></script>'
+          if tag not in s:
+              if '</body>' not in s:
+                  raise SystemExit('admin.html closing body tag not found')
+              s=s.replace('</body>',tag+'\n</body>',1)
+              p.write_text(s)
+          Path('integrate_admin_premium_identity.trigger').unlink(missing_ok=True)
+          Path('.github/workflows/integrate-admin-premium-identity.yml').unlink(missing_ok=True)
+          PY
+      - name: Commit integration
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet || git commit -m 'Integrate Premium identity review in Admin'
+          git push
