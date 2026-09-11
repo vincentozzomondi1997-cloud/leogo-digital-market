@@ -1,4 +1,4 @@
-/* LEOGO PREMIUM SECTION - isolated customer premium access gate. */
+/* LEOGO PREMIUM SECTION - isolated customer premium access and pricing. */
 (function(){
   if(window.__leogoPremiumSectionInstalled)return;
   window.__leogoPremiumSectionInstalled=true;
@@ -28,7 +28,7 @@
     if(!session){if(typeof window.openAuth==='function')window.openAuth();else alert('Please log in as a customer to enter LEOGO Premium.');return;}
     const q=await sb.from('premium_members').select('age_confirmed,relationship_disclaimer_accepted,consent_version').eq('user_id',session.user.id).maybeSingle();
     if(q.error){alert('Premium is temporarily unavailable. Please try again.');return;}
-    if(q.data?.age_confirmed===true&&q.data?.relationship_disclaimer_accepted===true&&q.data?.consent_version===CONSENT_VERSION){showPremiumPlaceholder(true);return;}
+    if(q.data?.age_confirmed===true&&q.data?.relationship_disclaimer_accepted===true&&q.data?.consent_version===CONSENT_VERSION){showPremiumArea(true);return;}
 
     close();
     const m=document.createElement('div');m.id='leogoPremiumModal';m.className='modal';
@@ -54,15 +54,36 @@
     const now=new Date().toISOString();
     const q=await sb.from('premium_members').upsert({user_id:session.user.id,age_confirmed:true,age_confirmed_at:now,relationship_disclaimer_accepted:true,disclaimer_accepted_at:now,consent_version:CONSENT_VERSION},{onConflict:'user_id'});
     if(q.error){b.disabled=false;b.textContent='CONFIRM & ENTER PREMIUM';msg.innerHTML='<div class="notice error">'+esc(q.error.message)+'</div>';return;}
-    close();showPremiumPlaceholder(false);
+    close();showPremiumArea(false);
   }
 
-  function showPremiumPlaceholder(returning){
+  async function getPricing(){
+    const q=await sb.rpc('get_premium_pricing');
+    if(q.error)return [];
+    return q.data||[];
+  }
+
+  async function choosePlan(planCode){
+    const msg=document.getElementById('lpPlanMsg');
+    if(msg)msg.innerHTML='<div class="notice">Preparing your Premium payment...</div>';
+    const q=await sb.rpc('start_premium_checkout',{p_plan_code:planCode});
+    if(q.error){if(msg)msg.innerHTML='<div class="notice error">'+esc(q.error.message)+'</div>';return;}
+    const row=q.data?.[0];
+    if(!row){if(msg)msg.innerHTML='<div class="notice error">Unable to create the Premium payment request.</div>';return;}
+    if(msg)msg.innerHTML='<div class="notice success"><b>Premium plan selected.</b> KSh '+Number(row.price).toLocaleString()+' payment request created. Payment processing will be connected next.</div>';
+  }
+
+  async function showPremiumArea(){
     close();
     const m=document.createElement('div');m.id='leogoPremiumModal';m.className='modal';
-    m.innerHTML='<div class="modal-card" style="width:min(760px,100%)"><div class="modal-head"><div><div style="font-size:11px;font-weight:900;color:#ff7a00">PRIVATE • VERIFIED • 18+</div><h2 style="margin:3px 0">🔒 LEOGO Premium</h2></div><button class="close" id="lpClose2">✕</button></div><div class="notice success"><b>Access confirmed.</b> Your Premium age and responsibility confirmations are on record.</div><div class="panel" style="background:#f8fafc"><h3>Private Premium Area</h3><p class="muted">Premium profiles and member features will appear here. Only approved, eligible Premium members will be able to access protected member information.</p><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px"><div class="cat"><div class="emoji">🛡️</div><b>Privacy Protected</b></div><div class="cat"><div class="emoji">✓</div><b>Verified Profiles</b></div><div class="cat"><div class="emoji">🔐</div><b>Private Connections</b></div></div></div><div class="muted" style="font-size:12px">LEOGO connects people; members are responsible for their own relationships, decisions, communication and meetings.</div><div style="display:flex;justify-content:flex-end;margin-top:15px"><button class="btn primary" id="lpClose3">CLOSE</button></div></div>';
+    m.innerHTML='<div class="modal-card" style="width:min(820px,100%)"><div class="modal-head"><div><div style="font-size:11px;font-weight:900;color:#ff7a00">PRIVATE • VERIFIED • 18+</div><h2 style="margin:3px 0">🔒 LEOGO Premium</h2></div><button class="close" id="lpClose2">✕</button></div><div class="notice success"><b>Access confirmation recorded.</b> Premium member access is protected by your account and consent.</div><div class="panel" style="background:#f8fafc"><h3>Premium Membership</h3><p class="muted">Choose how you want to access LEOGO Premium. Prices are controlled by LEOGO administration and may be changed from time to time.</p><div id="lpPlans" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:15px"></div><div id="lpPlanMsg" style="margin-top:12px"></div></div><div class="panel" style="margin-top:14px"><h3>Private Premium Area</h3><p class="muted">Only approved, eligible Premium members will be able to access protected member information, profiles and connections.</p><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px"><div class="cat"><div class="emoji">🛡️</div><b>Privacy Protected</b></div><div class="cat"><div class="emoji">✓</div><b>Verified Profiles</b></div><div class="cat"><div class="emoji">🔐</div><b>Private Connections</b></div></div></div><div class="muted" style="font-size:12px;margin-top:12px">LEOGO connects people; members are responsible for their own relationships, decisions, communication and meetings.</div><div style="display:flex;justify-content:flex-end;margin-top:15px"><button class="btn primary" id="lpClose3">CLOSE</button></div></div>';
     document.body.appendChild(m);
     document.getElementById('lpClose2').onclick=close;document.getElementById('lpClose3').onclick=close;m.onclick=e=>{if(e.target===m)close();};
+    const plans=await getPricing();
+    const wrap=document.getElementById('lpPlans');
+    if(!plans.length){wrap.innerHTML='<div class="notice error" style="grid-column:1/-1">Premium plans are temporarily unavailable.</div>';return;}
+    wrap.innerHTML=plans.map(p=>'<div class="cat" style="text-align:left;padding:18px;border:2px solid #dbe4f0"><div style="font-weight:900;color:#ff7a00">'+esc(p.plan_name)+'</div><div style="font-size:30px;font-weight:950;margin:6px 0">KSh '+Number(p.price).toLocaleString()+'</div><div class="muted" style="font-size:12px;margin-bottom:12px">'+(p.plan_code==='monthly'?'30 days • recurring plan':'One-time payment • no recurring charge')+'</div><button class="btn orange lpChoose" data-plan="'+esc(p.plan_code)+'" style="width:100%">CHOOSE PLAN</button></div>').join('');
+    wrap.querySelectorAll('.lpChoose').forEach(b=>b.onclick=()=>choosePlan(b.dataset.plan));
   }
 
   function start(){inject();}
