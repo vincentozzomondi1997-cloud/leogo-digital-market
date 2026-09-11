@@ -11,13 +11,11 @@
   let rendering=false;
 
   async function session(){return (await sb.auth.getSession()).data?.session||null;}
-
   async function loadState(){
     const s=await session(); if(!s)return null;
     const q=await sb.from('premium_memberships').select('id,plan_code,plan_name,price,duration_days,starts_at,expires_at,status,created_at').eq('user_id',s.user.id).order('created_at',{ascending:false}).limit(1).maybeSingle();
     return q.error?null:q.data;
   }
-
   async function getStateKey(){
     const state=await loadState();
     return state?[(state.id||''),state.status,state.created_at||'',state.expires_at||''].join('|'):'none';
@@ -29,7 +27,7 @@
     const area=Array.from(modal.querySelectorAll('.panel')).find(x=>/Premium Membership/i.test(x.textContent||''));
     if(!area)return;
     let box=document.getElementById('leogoPremiumPaymentBox');
-    if(!box){box=document.createElement('div');box.id='leogoPremiumPaymentBox';box.style.cssText='margin-top:14px';area.appendChild(box);}
+    if(!box){box=document.createElement('div');box.id='leogoPremiumPaymentBox';box.style.cssText='margin-top:14px';area.appendChild(box);lastStateKey='';}
     const key=await getStateKey();
     if(key===lastStateKey)return;
     lastStateKey=key;
