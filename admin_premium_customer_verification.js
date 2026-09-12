@@ -25,26 +25,39 @@
     if(!host)return;
     host.innerHTML='<div class="muted">Loading Premium Customer verification records…</div>';
 
+    /* The customer website records Premium entry in premium_members.
+       Staff must be allowed to read that table; the policy is restricted to staff.
+       We then bridge the member user_id to the normal profiles, memberships,
+       payments and identity-submission records. */
     const members=await sb.from('premium_members').select('user_id,age_confirmed,age_confirmed_at,relationship_disclaimer_accepted,disclaimer_accepted_at,consent_version,created_at,updated_at').order('created_at',{ascending:false});
     if(members.error){host.innerHTML=msg(members.error.message);return;}
-    const rows=members.data||[];
-    if(!rows.length){host.innerHTML='<div class="empty">No Premium Customers have joined yet.</div>';return;}
+    const memberRows=members.data||[];
+    if(!memberRows.length){host.innerHTML='<div class="empty">No Premium Customers have joined yet.</div>';return;}
 
-    const ids=rows.map(x=>x.user_id);
-    const [profiles,memberships,identities]=await Promise.all([
+    const ids=memberRows.map(x=>x.user_id);
+    const [profiles,memberships,identities,payments]=await Promise.all([
       sb.from('profiles').select('id,full_name,username,phone,email,location,role,status,avatar_url').in('id',ids),
       sb.from('premium_memberships').select('*').in('user_id',ids).order('created_at',{ascending:false}),
-      sb.from('premium_identity_submissions').select('*').in('user_id',ids).order('submitted_at',{ascending:false})
+      sb.from('premium_identity_submissions').select('*').in('user_id',ids).order('submitted_at',{ascending:false}),
+      sb.from('premium_payments').select('id,membership_id,user_id,amount,reference,status,created_at').in('user_id',ids).order('created_at',{ascending:false})
     ]);
-    if(profiles.error||memberships.error||identities.error){host.innerHTML=msg(profiles.error?.message||memberships.error?.message||identities.error?.message||'Could not load Premium Customer verification data.');return;}
+    if(profiles.error||memberships.error||identities.error||payments.error){
+      host.innerHTML=msg(profiles.error?.message||memberships.error?.message||identities.error?.message||payments.error?.message||'Could not load Premium Customer verification data.');
+      return;
+    }
 
     const pmap={};(profiles.data||[]).forEach(x=>pmap[x.id]=x);
+    /* This panel is specifically for Premium Customers, not Premium vehicle/service/provider accounts. */
+    const rows=memberRows.filter(x=>String(pmap[x.user_id]?.role||'')==='customer');
+    if(!rows.length){host.innerHTML='<div class="empty">No Premium Customers have joined yet.</div>';return;}
+
     const mmap={};(memberships.data||[]).forEach(x=>{if(!mmap[x.user_id])mmap[x.user_id]=x;});
     const imap={};(identities.data||[]).forEach(x=>{if(!imap[x.user_id])imap[x.user_id]=x;});
+    const paymap={};(payments.data||[]).forEach(x=>{if(x.membership_id&&!paymap[x.membership_id])paymap[x.membership_id]=x;});
 
-    const pending=(identities.data||[]).filter(x=>x.status==='pending').length;
-    const approved=(identities.data||[]).filter(x=>x.status==='approved').length;
-    const rejected=(identities.data||[]).filter(x=>x.status==='rejected').length;
+    const pending=(identities.data||[]).filter(x=>rows.some(r=>r.user_id===x.user_id)&&x.status==='pending').length;
+    const approved=(identities.data||[]).filter(x=>rows.some(r=>r.user_id===x.user_id)&&x.status==='approved').length;
+    const rejected=(identities.data||[]).filter(x=>rows.some(r=>r.user_id===x.user_id)&&x.status==='rejected').length;
 
     let html='<div class="cards" style="margin-top:12px">';
     html+='<div class="stat"><span class="muted">Premium Customers</span><b>'+rows.length+'</b></div>';
@@ -52,20 +65,21 @@
     html+='<div class="stat"><span class="muted">Verified</span><b>'+approved+'</b></div>';
     html+='<div class="stat"><span class="muted">Rejected</span><b>'+rejected+'</b></div>';
     html+='</div>';
-    html+='<div class="notice"><b>Premium Customer Verification</b><br>Use the existing Premium Customer identity submission and membership/payment records. Admin approval is recorded through the existing secure verification workflow. Do not approve a customer without reviewing the submitted identification details and documents.</div>';
+    html+='<div class="notice"><b>Premium Customer Verification</b><br>Customer Premium entry is read from the same <b>premium_members</b> record created by the customer website. Membership, payment and identity records are then matched by the customer user ID. Admin approval is recorded through the existing secure verification workflow.</div>';
     html+='<div class="table-wrap"><table class="table" style="min-width:1450px"><thead><tr><th>Customer</th><th>Premium Membership</th><th>Payment</th><th>Identity</th><th>Consent</th><th>Documents</th><th>Action</th></tr></thead><tbody>';
 
     for(const r of rows){
       const p=pmap[r.user_id]||{};
       const m=mmap[r.user_id]||{};
       const i=imap[r.user_id]||{};
+      const payrec=paymap[m.id]||{};
       const ist=String(i.status||'not submitted');
       const mst=String(m.status||'not started');
-      const pay=String(m.payment_status||'—');
+      const pay=String(payrec.status||'—');
       html+='<tr>';
       html+='<td><b>'+esc(p.username||'—')+'</b><br>'+esc(p.full_name||'—')+'<br><span class="muted">'+esc(p.phone||p.email||'—')+'</span><br><span class="muted">'+esc(p.location||'')+'</span></td>';
       html+='<td><b>'+esc(m.plan_name||'—')+'</b><br>Plan: '+esc(m.plan_code||'—')+'<br>Status: <span class="pill '+(mst==='active'?'green':mst==='rejected'?'red':'')+'">'+esc(mst)+'</span>'+(m.starts_at?'<br>Starts: '+esc(date(m.starts_at)):'')+(m.expires_at?'<br>Expires: '+esc(date(m.expires_at)):'')+'</td>';
-      html+='<td>'+money(m.price)+'<br><b>'+esc(m.reference||'—')+'</b><br><span class="pill '+(pay==='paid'?'green':pay==='rejected'?'red':'')+'">'+esc(pay)+'</span></td>';
+      html+='<td>'+money(payrec.amount??m.price)+'<br><b>'+esc(payrec.reference||'—')+'</b><br><span class="pill '+(pay==='paid'?'green':pay==='rejected'?'red':'')+'">'+esc(pay)+'</span></td>';
       if(i.id){
         html+='<td><b>'+esc(i.full_name_as_id||'—')+'</b><br>'+esc(i.id_type||'—')+': '+esc(i.id_number||'—')+'<br>Phone: '+esc(i.phone_number||'—')+'<br>Submitted: '+esc(date(i.submitted_at))+'<br><span class="pill '+(ist==='approved'?'green':ist==='rejected'?'red':'')+'">'+esc(ist)+'</span>'+(i.rejection_reason?'<br><span class="muted">'+esc(i.rejection_reason)+'</span>':'')+'</td>';
         html+='<td>Age confirmed: <b>'+esc(r.age_confirmed?'YES':'NO')+'</b><br>Disclaimer: <b>'+esc(r.relationship_disclaimer_accepted?'YES':'NO')+'</b><br><span class="muted">'+esc(r.consent_version||'—')+'</span></td>';
