@@ -1,0 +1,1 @@
+remove temporary premium admin integration
