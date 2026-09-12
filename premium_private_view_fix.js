@@ -25,12 +25,13 @@
   }
 
   function initModules(){
-    /* Priority queue first: incoming customer requests must appear before the profile controls. */
-    if(typeof window.initPremiumCustomerRequests==='function')window.initPremiumCustomerRequests();
+    /* Build the existing Premium controls first. The request queue is inserted LAST
+       so it can safely take the first position without interfering with other cards. */
     if(typeof window.initPremiumProfileApplicationReview==='function')window.initPremiumProfileApplicationReview();
     if(typeof window.initPremiumProfileFullRegistration==='function')window.initPremiumProfileFullRegistration();
     if(typeof window.initPremiumAcceptanceAdmin==='function')window.initPremiumAcceptanceAdmin();
     if(typeof window.initPremiumCustomerVerification==='function')window.initPremiumCustomerVerification();
+    if(typeof window.initPremiumCustomerRequests==='function')window.initPremiumCustomerRequests();
     if(typeof window.compactPremiumGallery==='function')setTimeout(window.compactPremiumGallery,100);
   }
 
@@ -43,7 +44,7 @@
       pending--;
       if(pending>0)return;
       /* loadPremium() rebuilds premiumArea. Re-render the base Premium list first,
-         then place the priority request queue and other controls back into the area. */
+         then place all Premium admin modules back into the area. */
       var render=window.loadPremium;
       if(typeof render==='function'){
         Promise.resolve(render()).finally(function(){setTimeout(initModules,50);});
