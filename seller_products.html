@@ -48,5 +48,6 @@ async function saveProduct(e){e.preventDefault();const f=document.getElementById
 async function deleteProduct(id){if(!confirm('Delete this product? This cannot be undone.'))return;const q=await sb.from('products').delete().eq('id',id).eq('seller_id',seller.id);if(q.error)msg('pageMsg','Delete failed: '+q.error.message);else{msg('pageMsg','Product deleted successfully.',true);await loadProducts()}}
 document.addEventListener('DOMContentLoaded',()=>{document.getElementById('pImageFile').addEventListener('change',previewImage);init()});
 </script>
+<script src="notifications.js?v=20260912"></script>
 </body>
 </html>
