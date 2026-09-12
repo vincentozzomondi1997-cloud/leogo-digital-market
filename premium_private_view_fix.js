@@ -28,13 +28,14 @@
     if(typeof window.initPremiumProfileApplicationReview==='function')window.initPremiumProfileApplicationReview();
     if(typeof window.initPremiumProfileFullRegistration==='function')window.initPremiumProfileFullRegistration();
     if(typeof window.initPremiumAcceptanceAdmin==='function')window.initPremiumAcceptanceAdmin();
+    if(typeof window.initPremiumCustomerVerification==='function')window.initPremiumCustomerVerification();
   }
 
   function boot(){
     var page=document.getElementById('page-premium');
     if(!page || !page.classList.contains('active'))return;
 
-    var pending=3;
+    var pending=4;
     function ready(){
       pending--;
       if(pending>0)return;
@@ -51,6 +52,7 @@
     load('premium_acceptance_admin.js',ready);
     load('admin_premium_profile_application_review.js',ready);
     load('admin_premium_profile_full_registration.js',ready);
+    load('admin_premium_customer_verification.js',ready);
   }
 
   function scheduleBoot(){setTimeout(boot,80);}
