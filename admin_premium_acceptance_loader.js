@@ -1,7 +1,7 @@
 (function(){
   'use strict';
   var ADMIN_EMAIL='leogodigitalmarket@gmail.com';
-  var loaded=false;
+  var loaded=false,applicationLoaded=false;
   function sb(){return window.supabase.createClient('https://twpiloiiigdghwcdjbnj.supabase.co','sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX');}
   function installAdminLogin(){
     if(!window.supabase||typeof window.supabase.createClient!=='function')return;
@@ -29,7 +29,7 @@
     if(!window.supabase)return;
     var client=sb();client.auth.getSession().then(function(r){var u=r.data?.session?.user;if(u&&String(u.email||'').toLowerCase()!==ADMIN_EMAIL)client.auth.signOut();});
   }
-  function load(){
+  function loadAcceptance(){
     if(loaded)return;
     var page=document.getElementById('page-premium');
     if(!page)return;
@@ -40,13 +40,25 @@
     s.onerror=function(){console.error('LEOGO: Could not load Premium acceptance approval panel.');};
     document.head.appendChild(s);
   }
+  function loadApplications(){
+    if(applicationLoaded)return;
+    var page=document.getElementById('page-premium');
+    if(!page)return;
+    applicationLoaded=true;
+    var s=document.createElement('script');
+    s.src='admin_premium_profile_application_review.js';
+    s.onload=function(){if(typeof window.initPremiumProfileApplicationReview==='function')window.initPremiumProfileApplicationReview();};
+    s.onerror=function(){console.error('LEOGO: Could not load Premium Profile application approval panel.');};
+    document.head.appendChild(s);
+  }
+  function loadAll(){loadAcceptance();loadApplications();}
   function watch(){
     installAdminLogin();
     clearNonAdminSession();
-    load();
+    loadAll();
     var nav=document.querySelectorAll('[data-page="premium"]');
-    nav.forEach(function(b){b.addEventListener('click',function(){setTimeout(load,0);});});
-    if(window.MutationObserver)new MutationObserver(load).observe(document.body,{childList:true,subtree:true});
+    nav.forEach(function(b){b.addEventListener('click',function(){setTimeout(loadAll,0);});});
+    if(window.MutationObserver)new MutationObserver(loadAll).observe(document.body,{childList:true,subtree:true});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',watch);else watch();
 })();
