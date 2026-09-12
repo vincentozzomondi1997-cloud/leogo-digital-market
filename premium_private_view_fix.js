@@ -25,22 +25,25 @@
   }
 
   function initModules(){
+    /* Priority queue first: incoming customer requests must appear before the profile controls. */
+    if(typeof window.initPremiumCustomerRequests==='function')window.initPremiumCustomerRequests();
     if(typeof window.initPremiumProfileApplicationReview==='function')window.initPremiumProfileApplicationReview();
     if(typeof window.initPremiumProfileFullRegistration==='function')window.initPremiumProfileFullRegistration();
     if(typeof window.initPremiumAcceptanceAdmin==='function')window.initPremiumAcceptanceAdmin();
     if(typeof window.initPremiumCustomerVerification==='function')window.initPremiumCustomerVerification();
+    if(typeof window.compactPremiumGallery==='function')setTimeout(window.compactPremiumGallery,100);
   }
 
   function boot(){
     var page=document.getElementById('page-premium');
     if(!page || !page.classList.contains('active'))return;
 
-    var pending=4;
+    var pending=6;
     function ready(){
       pending--;
       if(pending>0)return;
       /* loadPremium() rebuilds premiumArea. Re-render the base Premium list first,
-         then place the document/application review controls back into the area. */
+         then place the priority request queue and other controls back into the area. */
       var render=window.loadPremium;
       if(typeof render==='function'){
         Promise.resolve(render()).finally(function(){setTimeout(initModules,50);});
@@ -49,10 +52,12 @@
       }
     }
 
+    load('admin_premium_customer_requests.js',ready);
     load('premium_acceptance_admin.js',ready);
     load('admin_premium_profile_application_review.js',ready);
     load('admin_premium_profile_full_registration.js',ready);
     load('admin_premium_customer_verification.js',ready);
+    load('admin_premium_gallery_compact.js',ready);
   }
 
   function scheduleBoot(){setTimeout(boot,80);}
