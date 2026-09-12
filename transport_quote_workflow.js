@@ -2,7 +2,7 @@
 (function(){
   if(window.__leogoTransportQuoteWorkflowInstalled)return;
   window.__leogoTransportQuoteWorkflowInstalled=true;
-  const sb=window.supabase.createClient('https://twpiloiiigdghwcdjbnj.supabase.co','sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX');
+  const sb=window.__leogoAdminSB||window.supabase.createClient('https://twpiloiiigdghwcdjbnj.supabase.co','sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX');
   const esc=v=>String(v??'').replace(/[&<>\'\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
   const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
   let transportRefreshTimer=null,transportDomUpdating=false;
@@ -18,7 +18,12 @@
     host.querySelectorAll('[data-reject]').forEach(b=>b.onclick=async e=>{e.preventDefault();e.stopPropagation();const card=b.closest('.lq');let msg=card?.querySelector('[data-quote-message]');if(!msg){msg=document.createElement('div');msg.setAttribute('data-quote-message','1');card?.appendChild(msg)}b.disabled=true;b.textContent='REJECTING…';msg.className='lq lq-info';msg.textContent='Sending your rejection…';try{const x=await sb.rpc('reject_transport_quote',{p_request_id:b.dataset.reject});if(x.error)throw x.error;msg.className='lq lq-ok';msg.textContent='✓ Amount rejected. The transporter can submit a revised price.';setTimeout(customerRefresh,800)}catch(err){msg.className='lq lq-bad';msg.textContent=err?.message||'Unable to reject this amount. Please try again.';b.disabled=false;b.textContent='REJECT AMOUNT'}})}
   function customerBoot(){css();customerRefresh();setInterval(customerRefresh,4000)}
   async function adminRefresh(){const area=document.getElementById('leogoTransportInlineArea');if(!area)return;css();const selects=[...area.querySelectorAll('[id^="transportAssign_"]')];for(const sel of selects){const id=sel.id.replace('transportAssign_',''),parent=sel.closest('.detail')?.parentElement;if(!parent||parent.querySelector('[data-admin-lq]'))continue;const box=document.createElement('div');box.className='lq';box.setAttribute('data-admin-lq','1');box.innerHTML='<b>💰 ADMIN PRICE CONTROL</b><div class="lq-muted">Change the transporter price before transport starts. The customer must accept the revised amount.</div><div class="lq-actions"><input class="lq-input" data-admin-input type="number" min="1" step="0.01" placeholder="New amount"><button type="button" class="btn orange" data-admin-save>UPDATE PRICE</button></div><div class="lq-muted" data-admin-msg></div>';parent.appendChild(box);box.querySelector('[data-admin-save]').onclick=async()=>{const n=Number(box.querySelector('[data-admin-input]').value),msg=box.querySelector('[data-admin-msg]');if(!Number.isFinite(n)||n<=0){msg.textContent='Enter a valid amount.';return}const b=box.querySelector('[data-admin-save]');b.disabled=true;b.textContent='SAVING…';try{const x=await sb.rpc('admin_set_transport_price',{p_request_id:id,p_price:n});if(x.error)throw x.error;msg.textContent='Updated. Customer total: '+money(x.data?.customer_total||n*1.1)+'. Customer acceptance is required again.';b.textContent='UPDATED'}catch(e){msg.textContent=e?.message||'Unable to update the price.';b.disabled=false;b.textContent='UPDATE PRICE'}}}}
-  function adminBoot(){css();adminRefresh();setInterval(adminRefresh,3000)}
+  function adminBoot(){
+    css();
+    const run=()=>{const page=document.getElementById('page-transport');if(page?.classList.contains('active'))adminRefresh()};
+    run();
+    document.addEventListener('click',e=>{if(e.target?.closest?.('[data-page="transport"]'))setTimeout(run,100)},true);
+  }
   function boot(){const a=!!document.getElementById('tdBookingRows'),b=!!document.getElementById('leogoCustomerTransportArea'),c=!!document.getElementById('leogoTransportInlineArea');if(a)transporterBoot();if(b)customerBoot();if(c)adminBoot();else setTimeout(boot,1000)}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
