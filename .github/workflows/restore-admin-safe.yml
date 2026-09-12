@@ -1,0 +1,25 @@
+name: One-time Admin Safe Restore
+on:
+  push:
+    paths:
+      - '.github/workflows/restore-admin-safe.yml'
+permissions:
+  contents: write
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Restore Admin shell and isolate faulty dispatch addon
+        shell: bash
+        run: |
+          git show 2559ec823645b14dea5103469db90f1b4d78617e:admin.html > admin.html
+          sed -i '/<script src="admin_dispatch.js"><\/script>/d' admin.html
+          rm -f .github/workflows/restore-admin-safe.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin.html .github/workflows/restore-admin-safe.yml
+          git commit -m 'Restore Admin shell and isolate dispatch addon'
+          git push
