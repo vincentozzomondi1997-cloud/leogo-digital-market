@@ -3,9 +3,9 @@
   var loaded=false,applicationLoaded=false,fullRegistrationLoaded=false,customerVerificationLoaded=false;
   function sb(){return window.supabase.createClient('https://twpiloiiigdghwcdjbnj.supabase.co','sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX');}
   function loadAcceptance(){
-    if(loaded)return;
     var page=document.getElementById('page-premium');
     if(!page)return;
+    if(loaded){if(typeof window.initPremiumAcceptanceAdmin==='function')window.initPremiumAcceptanceAdmin();return;}
     loaded=true;
     var s=document.createElement('script');
     s.src='premium_acceptance_admin.js';
@@ -14,9 +14,9 @@
     document.head.appendChild(s);
   }
   function loadApplications(){
-    if(applicationLoaded)return;
     var page=document.getElementById('page-premium');
     if(!page)return;
+    if(applicationLoaded){if(typeof window.initPremiumProfileApplicationReview==='function')window.initPremiumProfileApplicationReview();return;}
     applicationLoaded=true;
     var s=document.createElement('script');
     s.src='admin_premium_profile_application_review.js';
@@ -25,9 +25,9 @@
     document.head.appendChild(s);
   }
   function loadFullRegistration(){
-    if(fullRegistrationLoaded)return;
     var page=document.getElementById('page-premium');
     if(!page)return;
+    if(fullRegistrationLoaded){if(typeof window.initPremiumProfileFullRegistration==='function')window.initPremiumProfileFullRegistration();return;}
     fullRegistrationLoaded=true;
     var s=document.createElement('script');
     s.src='admin_premium_profile_full_registration.js';
@@ -36,9 +36,9 @@
     document.head.appendChild(s);
   }
   function loadCustomerVerification(){
-    if(customerVerificationLoaded)return;
     var page=document.getElementById('page-premium');
     if(!page)return;
+    if(customerVerificationLoaded){if(typeof window.initPremiumCustomerVerification==='function')window.initPremiumCustomerVerification();return;}
     customerVerificationLoaded=true;
     var s=document.createElement('script');
     s.src='admin_premium_customer_verification.js';
