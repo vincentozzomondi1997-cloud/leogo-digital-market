@@ -1,6 +1,8 @@
 /* LEOGO PREMIUM ADMIN BRIDGE
    Lazy-load Premium admin modules only when the Premium page is opened.
-   This keeps the existing Admin shell and working modules untouched. */
+   The base Premium list calls loadPremium(), which rebuilds #premiumArea.
+   Therefore the review/document modules must be initialized AFTER that render,
+   otherwise their cards are immediately removed by loadPremium(). */
 (function(){
   'use strict';
   if(window.__leogoPremiumAdminBridgeInstalled)return;
@@ -15,31 +17,43 @@
       return;
     }
     var s=document.createElement('script');
-    s.src=src;
+    s.src=src+'?v=20260912';
     s.dataset.leogoPremiumAdmin=src;
     s.onload=function(){s.dataset.loaded='1';if(typeof ready==='function')ready();};
     s.onerror=function(){console.error('LEOGO: Could not load '+src);};
     document.head.appendChild(s);
   }
 
+  function initModules(){
+    if(typeof window.initPremiumProfileApplicationReview==='function')window.initPremiumProfileApplicationReview();
+    if(typeof window.initPremiumProfileFullRegistration==='function')window.initPremiumProfileFullRegistration();
+    if(typeof window.initPremiumAcceptanceAdmin==='function')window.initPremiumAcceptanceAdmin();
+  }
+
   function boot(){
     var page=document.getElementById('page-premium');
     if(!page || !page.classList.contains('active'))return;
-    if(window.__leogoPremiumAdminBooted)return;
-    window.__leogoPremiumAdminBooted=true;
 
-    load('premium_acceptance_admin.js',function(){
-      if(typeof window.initPremiumAcceptanceAdmin==='function')window.initPremiumAcceptanceAdmin();
-    });
-    load('admin_premium_profile_application_review.js',function(){
-      if(typeof window.initPremiumProfileApplicationReview==='function')window.initPremiumProfileApplicationReview();
-    });
-    load('admin_premium_profile_full_registration.js',function(){
-      if(typeof window.initPremiumProfileFullRegistration==='function')window.initPremiumProfileFullRegistration();
-    });
+    var pending=3;
+    function ready(){
+      pending--;
+      if(pending>0)return;
+      /* loadPremium() rebuilds premiumArea. Re-render the base Premium list first,
+         then place the document/application review controls back into the area. */
+      var render=window.loadPremium;
+      if(typeof render==='function'){
+        Promise.resolve(render()).finally(function(){setTimeout(initModules,50);});
+      }else{
+        setTimeout(initModules,50);
+      }
+    }
+
+    load('premium_acceptance_admin.js',ready);
+    load('admin_premium_profile_application_review.js',ready);
+    load('admin_premium_profile_full_registration.js',ready);
   }
 
-  function scheduleBoot(){setTimeout(boot,50);}
+  function scheduleBoot(){setTimeout(boot,80);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scheduleBoot);
   else scheduleBoot();
 
