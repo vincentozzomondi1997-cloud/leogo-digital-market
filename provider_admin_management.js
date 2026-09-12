@@ -1,8 +1,29 @@
 /* LEOGO PROVIDER ADMIN SAFE BRIDGE
    Keeps the main Admin Control Center untouched.
-   Provider actions are exposed only when the underlying Admin module exists. */
+   Provider actions are exposed only when the underlying Admin module exists.
+   Admin performance guard: reuse one Supabase client for the optional Admin addons
+   instead of creating several GoTrueClient instances in the same browser context. */
 (function(){
   'use strict';
+
+  /* Performance guard — this file is loaded first among the optional Admin addons. */
+  if(!window.__leogoAdminSupabaseFactoryGuard){
+    window.__leogoAdminSupabaseFactoryGuard=true;
+    const originalCreateClient=window.supabase?.createClient;
+    if(originalCreateClient){
+      let sharedClient=null;
+      const targetUrl='https://twpiloiiigdghwcdjbnj.supabase.co';
+      const targetKey='sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX';
+      window.supabase.createClient=function(url,key,options){
+        if(url===targetUrl && key===targetKey && !options){
+          if(!sharedClient) sharedClient=originalCreateClient.call(window.supabase,url,key);
+          return sharedClient;
+        }
+        return originalCreateClient.apply(window.supabase,arguments);
+      };
+    }
+  }
+
   if(window.__leogoProviderAdminSafe)return;
   window.__leogoProviderAdminSafe=true;
 
