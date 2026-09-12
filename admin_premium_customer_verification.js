@@ -140,6 +140,10 @@
     load();
   };
 
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(window.initPremiumCustomerVerification,0));
-  else setTimeout(window.initPremiumCustomerVerification,0);
+  function ensurePanel(){
+    if($('page-premium')&&!$('premiumCustomerVerificationCard'))window.initPremiumCustomerVerification();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(ensurePanel,0));
+  else setTimeout(ensurePanel,0);
+  if(window.MutationObserver)new MutationObserver(ensurePanel).observe(document.body,{childList:true,subtree:true});
 })();
