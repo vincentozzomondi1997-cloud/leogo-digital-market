@@ -1,0 +1,32 @@
+name: Clean temporary Premium Admin integration
+on:
+  push:
+    paths:
+      - 'cleanup-premium-admin.trigger'
+permissions:
+  contents: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove temporary Premium Admin script references
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('admin.html')
+          text = p.read_text(encoding='utf-8')
+          text = text.replace('<script src="admin_premium_acceptance_loader.js"></script>\n', '')
+          text = text.replace('<script src="admin_premium_management.js"></script>\n', '')
+          text = text.replace('<script src="admin_premium_acceptance_loader.js"></script>', '')
+          text = text.replace('<script src="admin_premium_management.js"></script>', '')
+          p.write_text(text, encoding='utf-8')
+          Path('cleanup-premium-admin.trigger').unlink(missing_ok=True)
+          PY
+      - name: Commit cleanup
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add admin.html cleanup-premium-admin.trigger
+          git diff --cached --quiet || git commit -m 'Remove temporary Premium Admin integration'
+          git push
