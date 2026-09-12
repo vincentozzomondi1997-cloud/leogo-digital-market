@@ -1,2 +1,1 @@
-/* LEOGO ADMIN STABILIZATION — intentionally inactive until verified. */
-(function(){'use strict';window.LEOGOAdminLazyLoad=window.LEOGOAdminLazyLoad||function(){return Promise.resolve()};})();
+/* Reserved for Admin stabilization. Not loaded by admin.html. */
