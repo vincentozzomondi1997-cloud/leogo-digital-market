@@ -1,21 +1,33 @@
 /* LEOGO PREMIUM ADMIN BRIDGE
-   This file is intentionally loaded by the existing admin.html shell.
-   It restores Premium Profile application/payment review panels and the
-   isolated full-registration document viewer without changing the existing
-   Admin Control Center modules. */
+   Lazy-load Premium admin modules only when the Premium page is opened.
+   This keeps the existing Admin shell and working modules untouched. */
 (function(){
   'use strict';
+  if(window.__leogoPremiumAdminBridgeInstalled)return;
+  window.__leogoPremiumAdminBridgeInstalled=true;
+
   function load(src, ready){
-    if(document.querySelector('script[data-leogo-premium-admin="'+src+'"]')){if(typeof ready==='function')ready();return;}
+    var selector='script[data-leogo-premium-admin="'+src+'"]';
+    var existing=document.querySelector(selector);
+    if(existing){
+      if(existing.dataset.loaded==='1' && typeof ready==='function')ready();
+      else if(typeof ready==='function')existing.addEventListener('load',ready,{once:true});
+      return;
+    }
     var s=document.createElement('script');
     s.src=src;
     s.dataset.leogoPremiumAdmin=src;
-    s.onload=function(){if(typeof ready==='function')ready();};
+    s.onload=function(){s.dataset.loaded='1';if(typeof ready==='function')ready();};
     s.onerror=function(){console.error('LEOGO: Could not load '+src);};
     document.head.appendChild(s);
   }
+
   function boot(){
-    if(!document.getElementById('page-premium'))return;
+    var page=document.getElementById('page-premium');
+    if(!page || !page.classList.contains('active'))return;
+    if(window.__leogoPremiumAdminBooted)return;
+    window.__leogoPremiumAdminBooted=true;
+
     load('premium_acceptance_admin.js',function(){
       if(typeof window.initPremiumAcceptanceAdmin==='function')window.initPremiumAcceptanceAdmin();
     });
@@ -26,6 +38,13 @@
       if(typeof window.initPremiumProfileFullRegistration==='function')window.initPremiumProfileFullRegistration();
     });
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
-  if(window.MutationObserver)new MutationObserver(boot).observe(document.body,{childList:true,subtree:true});
+
+  function scheduleBoot(){setTimeout(boot,50);}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scheduleBoot);
+  else scheduleBoot();
+
+  document.addEventListener('click',function(e){
+    var b=e.target&&e.target.closest?e.target.closest('[data-page="premium"]'):null;
+    if(b)scheduleBoot();
+  },true);
 })();
