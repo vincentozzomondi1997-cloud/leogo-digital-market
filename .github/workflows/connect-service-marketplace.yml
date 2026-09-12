@@ -1,1 +1,16 @@
-# One-time workflow completed. Intentionally disabled so future pushes are unaffected.
+name: LEOGO archived service marketplace workflow
+
+# Historical workflow retained only as a valid, manually runnable placeholder.
+# The service marketplace integration is already in the main application.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  archived_notice:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Archived workflow
+        run: echo "Service marketplace integration is already complete; no action required."
