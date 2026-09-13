@@ -7,6 +7,7 @@ on:
       - premium_discovery.js
       - premium_section.js
       - premium_payment_bridge.js
+      - premium_availability.js
       - .github/workflows/install_premium_profile_view.yml
 permissions:
   contents: write
@@ -34,7 +35,8 @@ jobs:
               'premium_discovery',
               'premium_profile_view',
               'premium_profile_view_attach',
-              'premium_payment_bridge'
+              'premium_payment_bridge',
+              'premium_availability'
           ]:
               text = re.sub(r'\s*<script\s+src="' + re.escape(name) + r'\.js(?:\?v=[^"]+)?"\s*></script>', '', text)
 
@@ -47,7 +49,8 @@ jobs:
               '<script src="premium_discovery.js?v=20260914-1"></script>',
               '<script src="premium_profile_view.js?v=20260914-4"></script>',
               '<script src="premium_profile_view_attach.js?v=20260914-3"></script>',
-              '<script src="premium_payment_bridge.js?v=20260914-1"></script>'
+              '<script src="premium_payment_bridge.js?v=20260914-1"></script>',
+              '<script src="premium_availability.js?v=20260914-1"></script>'
           ])
 
           if '</body>' not in text:
@@ -65,12 +68,14 @@ jobs:
           test "$(grep -o 'premium_profile_view\.js?v=' index.html | wc -l | tr -d ' ')" = "1"
           test "$(grep -o 'premium_profile_view_attach\.js?v=' index.html | wc -l | tr -d ' ')" = "1"
           test "$(grep -o 'premium_payment_bridge\.js?v=' index.html | wc -l | tr -d ' ')" = "1"
+          test "$(grep -o 'premium_availability\.js?v=' index.html | wc -l | tr -d ' ')" = "1"
           test "$(grep -o 'premium_profile\.js" index.html | wc -l | tr -d ' ')" = "1"
           grep -q 'premium_section.js?v=20260914-1' index.html
           grep -q 'premium_discovery.js?v=20260914-1' index.html
           grep -q 'premium_profile_view.js?v=20260914-4' index.html
           grep -q 'premium_profile_view_attach.js?v=20260914-3' index.html
           grep -q 'premium_payment_bridge.js?v=20260914-1' index.html
+          grep -q 'premium_availability.js?v=20260914-1' index.html
 
       - name: Commit integration
         shell: bash
@@ -79,5 +84,5 @@ jobs:
           git config user.email 'actions@users.noreply.github.com'
           git add index.html
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Connect Premium renewal payment flow'
+          git commit -m 'Add Premium owner availability tab'
           git push
