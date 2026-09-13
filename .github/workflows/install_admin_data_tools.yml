@@ -1,0 +1,33 @@
+name: Install LEOGO admin data tools
+on:
+  push:
+    paths:
+      - admin_data_tools.js
+      - .github/workflows/install_admin_data_tools.yml
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add admin data tools
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('admin.html')
+          if p.exists():
+              text=p.read_text(encoding='utf-8')
+              tag='<script src="admin_data_tools.js?v=20260913"></script>'
+              if tag not in text and '</body>' in text:
+                  text=text.replace('</body>',tag+'\n</body>',1)
+                  p.write_text(text,encoding='utf-8')
+          PY
+      - name: Commit integration
+        run: |
+          git config user.name 'LEOGO Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add admin.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Install admin data management tools'
+          git push
