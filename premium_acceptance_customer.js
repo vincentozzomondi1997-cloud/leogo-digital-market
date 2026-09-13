@@ -6,6 +6,7 @@
   const URL='https://twpiloiiigdghwcdjbnj.supabase.co',KEY='sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX',sb=window.supabase.createClient(URL,KEY);
   const esc=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c])),money=v=>'KSh '+Number(v||0).toLocaleString(),notice=(t,ok)=>'<div class="notice '+(ok?'success':'error')+'">'+esc(t)+'</div>';
   async function status(){const q=await sb.rpc('premium_profile_acceptance_status');if(q.error)throw q.error;return q.data?.[0]||q.data||{}}
+  async function activePremium(uid){const q=await sb.rpc('is_premium_active',{p_user_id:uid});if(q.error)throw q.error;return q.data===true}
   function loadChatModule(){
     if(window.LEOGOPremiumChat?.open)return true;
     if(!document.querySelector('script[data-leogo-premium-chat]')){
@@ -21,6 +22,7 @@
   async function request(profileId,type){
     const s=(await sb.auth.getSession()).data?.session;
     if(!s){alert('Please log in to request a Premium Profile connection.');return}
+    try{if(!(await activePremium(s.user.id))){alert('Your Premium membership is not active or has expired. Please renew Premium access before sending an interest or booking request.');return}}catch(e){alert(e.message||'Unable to verify your Premium membership. Please try again.');return}
     loadChatModule();
     if(type==='booking'){
       const date=prompt('Requested date (YYYY-MM-DD):',new Date().toISOString().slice(0,10));
