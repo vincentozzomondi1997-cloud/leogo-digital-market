@@ -88,13 +88,23 @@
   }
 
   function intercept(e){
-    const b=e.target.closest('button');if(!b)return;
+    const b=e.target.closest?.('button');
+    if(!b)return;
     const t=(b.textContent||'').trim().replace(/\s+/g,' ').toUpperCase();
-    if(t==='CHOOSE MEMBERSHIP'||t==='CHOOSE PLAN'||t==='MEMBERSHIP'){
+    // A plan button must execute the selected plan, not reopen the plan picker.
+    if(b.dataset?.plan || b.classList.contains('lpChoose')){
+      const planCode=b.dataset.plan;
+      if(planCode){
+        e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
+        choose({plan_code:planCode}).catch(err=>alert(err.message||'Premium renewal could not be started'));
+        return;
+      }
+    }
+    if(t==='CHOOSE MEMBERSHIP'||t==='MEMBERSHIP'){
       e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
       open();
     }
   }
   document.addEventListener('click',intercept,true);
-  window.LEOGOPremiumPaymentBridge={open,showPayment};
+  window.LEOGOPremiumPaymentBridge={open,showPayment,choose};
 })();
