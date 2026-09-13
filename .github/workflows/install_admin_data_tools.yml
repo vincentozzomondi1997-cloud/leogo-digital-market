@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Add admin data tools
+      - name: Add admin data tools and enable report archival deletion
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -25,18 +25,31 @@ jobs:
               text=re.sub(r'<script src="admin_delete_resume\\.js\\?v=[^"]+"></script>', '', text)
               text=re.sub(r'<script src="admin_delete_simple\\.js\\?v=[^"]+"></script>', '', text)
               tags='\n'.join([
-                '<script src="admin_data_tools.js?v=20260913-5"></script>',
-                '<script src="admin_delete_simple.js?v=20260913-1"></script>'
+                '<script src="admin_data_tools.js?v=20260913-6"></script>',
+                '<script src="admin_delete_simple.js?v=20260913-2"></script>'
               ])
               if '</body>' in text:
                   text=text.replace('</body>',tags+'\n</body>',1)
                   p.write_text(text,encoding='utf-8')
+
+          d=Path('admin_data_tools.js')
+          if d.exists():
+              s=d.read_text(encoding='utf-8')
+              old="if(del)del.disabled=!SELECTED.size||CURRENT.dataset!=='cleanup';"
+              new="if(del)del.disabled=!SELECTED.size||!(CURRENT.dataset==='reports'||CURRENT.dataset==='cleanup');"
+              if old in s:
+                  s=s.replace(old,new,1)
+              old_notice="Permanent row deletion is intentionally restricted to the Disposable Cleanup tab so core seller, customer, order, service, transport and premium records cannot be accidentally deleted."
+              new_notice="Permanent deletion is enabled for selected Order & Work Reports and Disposable Cleanup records only. Seller, customer, provider, transporter and premium master records remain protected. Export selected records to Excel before deletion."
+              if old_notice in s:
+                  s=s.replace(old_notice,new_notice,1)
+              d.write_text(s,encoding='utf-8')
           PY
       - name: Commit integration
         run: |
           git config user.name 'LEOGO Automation'
           git config user.email 'actions@users.noreply.github.com'
-          git add admin.html
+          git add admin.html admin_data_tools.js
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Simplify selected data deletion confirmation'
+          git commit -m 'Enable backup-first report archival deletion'
           git push
