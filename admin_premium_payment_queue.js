@@ -67,11 +67,17 @@
   function ensure(){
     const area=$('premiumArea');
     if(!area)return;
-    if($('premiumPaymentApprovalCard')){load();return;}
+    /* If the card already exists, do nothing. The previous version called load()
+       here on every DOM mutation, while load() itself changes innerHTML. That
+       created a MutationObserver -> load -> mutation -> observer loop and could
+       freeze the entire Admin Control Center. */
+    if($('premiumPaymentApprovalCard'))return;
     const card=document.createElement('div');
     card.id='premiumPaymentApprovalCard';card.className='card';card.style.marginTop='16px';
     card.innerHTML='<div class="toolbar"><div><h2 style="margin:0">Premium Customer Payment Approval</h2><div class="muted">Verify customer M-Pesa references before activating or renewing Premium access.</div></div><button class="light" id="refreshPremiumPaymentApproval">↻ REFRESH</button></div><div id="premiumPaymentApprovalArea" style="margin-top:12px"></div>';
-    area.appendChild(card);$('refreshPremiumPaymentApproval').onclick=load;load();
+    area.appendChild(card);
+    $('refreshPremiumPaymentApproval').onclick=load;
+    load();
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(ensure,0));else setTimeout(ensure,0);
