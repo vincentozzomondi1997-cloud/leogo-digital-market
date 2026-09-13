@@ -13,30 +13,51 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Premium profile view scripts on customer website
+        shell: bash
         run: |
+          set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
           import re
-          p=Path('index.html')
+
+          p = Path('index.html')
           if not p.exists():
               raise SystemExit('index.html not found')
-          text=p.read_text(encoding='utf-8')
-          text=re.sub(r'<script src="premium_profile_view\\.js\\?v=[^"]+"></script>', '', text)
-          text=re.sub(r'<script src="premium_profile_view_attach\\.js\\?v=[^"]+"></script>', '', text)
-          tags='\n'.join([
-            '<script src="premium_profile_view.js?v=20260913-2"></script>',
-            '<script src="premium_profile_view_attach.js?v=20260913-1"></script>'
+
+          text = p.read_text(encoding='utf-8')
+
+          # Remove every previous copy so the customer page never loads conflicting versions.
+          text = re.sub(r'\s*<script\s+src="premium_profile_view\.js\?v=[^"]+"\s*></script>', '', text)
+          text = re.sub(r'\s*<script\s+src="premium_profile_view_attach\.js\?v=[^"]+"\s*></script>', '', text)
+
+          tags = '\n'.join([
+              '<script src="premium_profile_view.js?v=20260913-3"></script>',
+              '<script src="premium_profile_view_attach.js?v=20260913-2"></script>'
           ])
+
           if '</body>' not in text:
               raise SystemExit('index.html has no closing body tag')
-          text=text.replace('</body>',tags+'\n</body>',1)
-          p.write_text(text,encoding='utf-8')
+
+          text = text.replace('</body>', tags + '\n</body>', 1)
+          p.write_text(text, encoding='utf-8')
           PY
+
+      - name: Verify customer integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          count_view=$(grep -o 'premium_profile_view\.js?v=' index.html | wc -l | tr -d ' ')
+          count_attach=$(grep -o 'premium_profile_view_attach\.js?v=' index.html | wc -l | tr -d ' ')
+          test "$count_view" = "1"
+          test "$count_attach" = "1"
+          grep -q 'premium_profile_view.js?v=20260913-3' index.html
+          grep -q 'premium_profile_view_attach.js?v=20260913-2' index.html
+
       - name: Commit integration
         run: |
           git config user.name 'LEOGO Automation'
           git config user.email 'actions@users.noreply.github.com'
           git add index.html
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Fix Premium View Profile button integration'
+          git commit -m 'Install single Premium profile view integration'
           git push
