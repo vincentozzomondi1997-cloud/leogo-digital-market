@@ -18,8 +18,10 @@ jobs:
           p=Path('admin.html')
           if p.exists():
               text=p.read_text(encoding='utf-8')
-              tag='<script src="admin_data_tools.js?v=20260913"></script>'
-              if tag not in text and '</body>' in text:
+              import re
+              tag='<script src="admin_data_tools.js?v=20260913-2"></script>'
+              text=re.sub(r'<script src="admin_data_tools\\.js\\?v=[^"]+"></script>', '', text)
+              if '</body>' in text:
                   text=text.replace('</body>',tag+'\n</body>',1)
                   p.write_text(text,encoding='utf-8')
           PY
