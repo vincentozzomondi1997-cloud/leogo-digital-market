@@ -15,17 +15,20 @@
     Object.keys(map).forEach(name=>{
       Array.from(modal.querySelectorAll('*')).filter(el=>el.children.length===0&&el.textContent.trim()===name).forEach(label=>{
         let card=label.parentElement;
-        for(let i=0;i<8&&card;i++,card=card.parentElement){
+        for(let i=0;i<10&&card;i++,card=card.parentElement){
           const buttons=Array.from(card.querySelectorAll('button'));
           if(buttons.some(b=>(b.textContent||'').includes('EXPRESS INTEREST'))&&buttons.some(b=>(b.textContent||'').includes('REQUEST BOOKING'))){
             if(card.querySelector('.leogo-view-profile-btn'))return;
             const profileId=map[name];
             if(!profileId)return;
             const b=document.createElement('button');
-            b.type='button';b.className='lpv-view leogo-view-profile-btn';b.textContent='👤 VIEW PROFILE';
+            b.type='button';
+            b.className='lpv-view leogo-view-profile-btn';
+            b.textContent='👤 VIEW PROFILE';
             b.style.cssText='border:0;background:#07152f;color:#fff;border-radius:10px;padding:10px 14px;font-weight:900;cursor:pointer;margin:8px 0 0 0;display:block;width:100%';
             b.onclick=()=>open()(profileId);
-            card.appendChild(b);return;
+            card.appendChild(b);
+            return;
           }
         }
       });
@@ -35,13 +38,27 @@
     try{
       if(!window.supabase)return;
       const sb=window.supabase.createClient('https://twpiloiiigdghwcdjbnj.supabase.co','sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX');
-      const q=await sb.rpc('get_premium_profiles');
-      if(q.error||!q.data)return;
-      window.__leogoPremiumProfileIdMap={};q.data.forEach(p=>{window.__leogoPremiumProfileIdMap[p.username]=p.id});
+      // Use the same customer-safe RPC as the Premium discovery catalogue.
+      // The profile-view RPC performs the real active-Premium authorization check.
+      const q=await sb.rpc('get_premium_profiles_public');
+      if(q.error||!Array.isArray(q.data)){
+        console.warn('LEOGO Premium View Profile map unavailable:',q.error?.message||'No data');
+        return;
+      }
+      window.__leogoPremiumProfileIdMap={};
+      q.data.forEach(p=>{if(p.username&&p.id)window.__leogoPremiumProfileIdMap[p.username]=p.id});
       attach();
-    }catch(e){}
+    }catch(e){
+      console.warn('LEOGO Premium View Profile attachment error:',e);
+    }
   }
-  const obs=new MutationObserver(()=>{clearTimeout(window.__lpvAttachTimer);window.__lpvAttachTimer=setTimeout(attach,100)});
-  function start(){obs.observe(document.body,{childList:true,subtree:true});buildMap()}
+  const obs=new MutationObserver(()=>{
+    clearTimeout(window.__lpvAttachTimer);
+    window.__lpvAttachTimer=setTimeout(attach,100);
+  });
+  function start(){
+    obs.observe(document.body,{childList:true,subtree:true});
+    buildMap();
+  }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
