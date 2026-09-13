@@ -15,11 +15,11 @@
     try{
       if(!(await session())){alert('Please log in to view Premium profiles.');return}
       if(!(await active())){alert('Active Premium membership is required to view the Premium profile gallery.');return}
-      const p=await sb.from('premium_profiles').select('id,username,location,age,sex,availability,verified,profile_picture_path,orientation,description,fee').eq('id',profileId).eq('approved',true).maybeSingle();
-      if(p.error||!p.data)throw new Error(p.error?.message||'Premium profile not found.');
+      const p=await sb.rpc('get_premium_profile_view',{p_profile_id:profileId});
+      if(p.error||!p.data?.length)throw new Error(p.error?.message||'Premium profile not found.');
       const g=await sb.rpc('get_premium_profile_gallery',{p_profile_id:profileId});
       if(g.error)throw new Error(g.error.message);
-      render(p.data,g.data||[]);
+      render(p.data[0],g.data||[]);
     }catch(e){alert(e.message||'Unable to open Premium profile.')}finally{busy=false}
   }
   function render(p,gallery){
@@ -32,18 +32,19 @@
   }
   function lightbox(src){const x=document.createElement('div');x.className='lpv-lightbox';x.innerHTML='<button>✕</button><img src="'+esc(src)+'" alt="Premium gallery image">';document.body.appendChild(x);x.onclick=e=>{if(e.target===x||e.target.tagName==='BUTTON')x.remove()}}
   async function decorate(){
-    if(document.getElementById('leogoPremiumModal')){
-      const q=await sb.rpc('get_premium_profiles');
-      if(q.error||!q.data?.length)return;
-      q.data.forEach(p=>{
-        if(!p.id||!p.username)return;
-        const nodes=Array.from(document.querySelectorAll('#leogoPremiumModal *')).filter(el=>el.children.length===0&&el.textContent.trim()===p.username);
-        nodes.forEach(name=>{const card=name.closest('.panel,.card,[style*="border"],div')||name.parentElement;if(!card||card.querySelector('[data-lpv-profile="'+p.id+'"]'))return;const b=document.createElement('button');b.className='lpv-view';b.type='button';b.textContent='👤 VIEW PROFILE';b.dataset.lpvProfile=p.id;b.dataset.lpvProfile=''+p.id;b.setAttribute('data-lpv-profile',p.id);b.onclick=()=>openProfile(p.id);card.appendChild(b)})
-      });
-    }
+    const modal=document.getElementById('leogoPremiumModal');
+    if(!modal||modal.dataset.lpvDecorated==='1')return;
+    const q=await sb.rpc('get_premium_profiles');
+    if(q.error||!q.data?.length)return;
+    modal.dataset.lpvDecorated='1';
+    q.data.forEach(p=>{
+      if(!p.id||!p.username)return;
+      const nodes=Array.from(modal.querySelectorAll('*')).filter(el=>el.children.length===0&&el.textContent.trim()===p.username);
+      nodes.forEach(name=>{const card=name.closest('.panel,.card,[style*="border"],div')||name.parentElement;if(!card||card.querySelector('[data-lpv-profile="'+p.id+'"]'))return;const b=document.createElement('button');b.className='lpv-view';b.type='button';b.textContent='👤 VIEW PROFILE';b.setAttribute('data-lpv-profile',p.id);b.onclick=()=>openProfile(p.id);card.appendChild(b)})
+    });
   }
   window.LEOGOPremiumProfileView={open:openProfile};
-  const obs=new MutationObserver(()=>{clearTimeout(window.__lpvTimer);window.__lpvTimer=setTimeout(decorate,120)});
+  const obs=new MutationObserver(()=>{clearTimeout(window.__lpvTimer);window.__lpvTimer=setTimeout(decorate,150)});
   function start(){obs.observe(document.body,{childList:true,subtree:true});decorate()}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
