@@ -6,6 +6,7 @@ on:
       - premium_profile_view_attach.js
       - premium_discovery.js
       - premium_section.js
+      - premium_payment_bridge.js
       - .github/workflows/install_premium_profile_view.yml
 permissions:
   contents: write
@@ -27,22 +28,28 @@ jobs:
               raise SystemExit('index.html not found')
           text = p.read_text(encoding='utf-8')
 
-          # Remove every previous cache-busted copy so only one version of each script can load.
-          text = re.sub(r'\s*<script\s+src="premium_section\.js(?:\?v=[^"]+)?"\s*></script>', '', text)
-          text = re.sub(r'\s*<script\s+src="premium_discovery\.js(?:\?v=[^"]+)?"\s*></script>', '', text)
-          text = re.sub(r'\s*<script\s+src="premium_profile_view\.js\?v=[^"]+"\s*></script>', '', text)
-          text = re.sub(r'\s*<script\s+src="premium_profile_view_attach\.js\?v=[^"]+"\s*></script>', '', text)
-
-          tags = '\n'.join([
-              '<script src="premium_section.js?v=20260913-2"></script>',
-              '<script src="premium_profile.js"></script>',
-              '<script src="premium_discovery.js?v=20260913-2"></script>',
-              '<script src="premium_profile_view.js?v=20260913-3"></script>',
-              '<script src="premium_profile_view_attach.js?v=20260913-2"></script>'
-          ])
+          # Remove every previous copy so only one cache-busted version of each Premium script can load.
+          for name in [
+              'premium_section',
+              'premium_discovery',
+              'premium_profile_view',
+              'premium_profile_view_attach',
+              'premium_payment_bridge'
+          ]:
+              text = re.sub(r'\s*<script\s+src="' + re.escape(name) + r'\.js(?:\?v=[^"]+)?"\s*></script>', '', text)
 
           # premium_profile.js is intentionally normalized to one copy as well.
           text = re.sub(r'\s*<script\s+src="premium_profile\.js"\s*></script>', '', text)
+
+          tags = '\n'.join([
+              '<script src="premium_section.js?v=20260914-1"></script>',
+              '<script src="premium_profile.js"></script>',
+              '<script src="premium_discovery.js?v=20260914-1"></script>',
+              '<script src="premium_profile_view.js?v=20260914-4"></script>',
+              '<script src="premium_profile_view_attach.js?v=20260914-3"></script>',
+              '<script src="premium_payment_bridge.js?v=20260914-1"></script>'
+          ])
+
           if '</body>' not in text:
               raise SystemExit('index.html has no closing body tag')
           text = text.replace('</body>', tags + '\n</body>', 1)
@@ -57,11 +64,13 @@ jobs:
           test "$(grep -o 'premium_discovery\.js?v=' index.html | wc -l | tr -d ' ')" = "1"
           test "$(grep -o 'premium_profile_view\.js?v=' index.html | wc -l | tr -d ' ')" = "1"
           test "$(grep -o 'premium_profile_view_attach\.js?v=' index.html | wc -l | tr -d ' ')" = "1"
+          test "$(grep -o 'premium_payment_bridge\.js?v=' index.html | wc -l | tr -d ' ')" = "1"
           test "$(grep -o 'premium_profile\.js" index.html | wc -l | tr -d ' ')" = "1"
-          grep -q 'premium_section.js?v=20260913-2' index.html
-          grep -q 'premium_discovery.js?v=20260913-2' index.html
-          grep -q 'premium_profile_view.js?v=20260913-3' index.html
-          grep -q 'premium_profile_view_attach.js?v=20260913-2' index.html
+          grep -q 'premium_section.js?v=20260914-1' index.html
+          grep -q 'premium_discovery.js?v=20260914-1' index.html
+          grep -q 'premium_profile_view.js?v=20260914-4' index.html
+          grep -q 'premium_profile_view_attach.js?v=20260914-3' index.html
+          grep -q 'premium_payment_bridge.js?v=20260914-1' index.html
 
       - name: Commit integration
         shell: bash
@@ -70,5 +79,5 @@ jobs:
           git config user.email 'actions@users.noreply.github.com'
           git add index.html
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Deploy Premium expiry and renewal controls'
+          git commit -m 'Connect Premium renewal payment flow'
           git push
