@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Add notification center to role pages
+      - name: Update notification center on role pages
         shell: bash
         run: |
           python3 - <<'PY'
@@ -25,19 +25,23 @@ jobs:
               'premium_profile_dashboard.html',
               'premium_profile_owner_dashboard.html',
           ]
-          tag = '<script src="notifications.js?v=20260912"></script>'
+          new_tag = '<script src="notifications.js?v=20260913"></script>'
           changed = []
           for name in pages:
               p = Path(name)
               if not p.exists():
                   continue
               text = p.read_text(encoding='utf-8')
-              if tag in text:
+              import re
+              text2 = re.sub(r'<script\s+src=["\']notifications\.js(?:\?[^"\']*)?["\']\s*></script>', new_tag, text, count=1)
+              if text2 != text:
+                  p.write_text(text2, encoding='utf-8')
+                  changed.append(name)
                   continue
               marker = '</body>'
               if marker not in text:
                   continue
-              text = text.replace(marker, tag + '\n' + marker, 1)
+              text = text.replace(marker, new_tag + '\n' + marker, 1)
               p.write_text(text, encoding='utf-8')
               changed.append(name)
           print('Updated:', ', '.join(changed) if changed else 'none')
@@ -52,5 +56,5 @@ jobs:
             echo 'No page changes required.'
             exit 0
           fi
-          git commit -m 'Add unread notification icon to role pages'
+          git commit -m 'Refresh notification center integration'
           git push
