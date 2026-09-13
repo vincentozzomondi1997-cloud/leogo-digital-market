@@ -1,4 +1,5 @@
 /* LEOGO ADMIN — PREMIUM CUSTOMER PAYMENT APPROVAL QUEUE */
+/* Cache refresh 2026-09-14: observer loop fixed; safe to reload. */
 (function(){
   'use strict';
   if(window.__leogoPremiumPaymentAdminQueue)return;
