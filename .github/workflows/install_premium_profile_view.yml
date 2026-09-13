@@ -5,6 +5,7 @@ on:
       - premium_profile_view.js
       - premium_profile_view_attach.js
       - premium_discovery.js
+      - premium_section.js
       - .github/workflows/install_premium_profile_view.yml
 permissions:
   contents: write
@@ -13,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Premium profile view scripts on customer website
+      - name: Install Premium scripts on customer website
         shell: bash
         run: |
           set -euo pipefail
@@ -24,23 +25,26 @@ jobs:
           p = Path('index.html')
           if not p.exists():
               raise SystemExit('index.html not found')
-
           text = p.read_text(encoding='utf-8')
 
-          # Remove every previous copy so the customer page never loads conflicting versions.
+          # Remove every previous cache-busted copy so only one version of each script can load.
+          text = re.sub(r'\s*<script\s+src="premium_section\.js(?:\?v=[^"]+)?"\s*></script>', '', text)
+          text = re.sub(r'\s*<script\s+src="premium_discovery\.js(?:\?v=[^"]+)?"\s*></script>', '', text)
           text = re.sub(r'\s*<script\s+src="premium_profile_view\.js\?v=[^"]+"\s*></script>', '', text)
           text = re.sub(r'\s*<script\s+src="premium_profile_view_attach\.js\?v=[^"]+"\s*></script>', '', text)
-          text = re.sub(r'\s*<script\s+src="premium_discovery\.js(?:\?v=[^"]+)?"\s*></script>', '', text)
 
           tags = '\n'.join([
+              '<script src="premium_section.js?v=20260913-2"></script>',
+              '<script src="premium_profile.js"></script>',
               '<script src="premium_discovery.js?v=20260913-2"></script>',
               '<script src="premium_profile_view.js?v=20260913-3"></script>',
               '<script src="premium_profile_view_attach.js?v=20260913-2"></script>'
           ])
 
+          # premium_profile.js is intentionally normalized to one copy as well.
+          text = re.sub(r'\s*<script\s+src="premium_profile\.js"\s*></script>', '', text)
           if '</body>' not in text:
               raise SystemExit('index.html has no closing body tag')
-
           text = text.replace('</body>', tags + '\n</body>', 1)
           p.write_text(text, encoding='utf-8')
           PY
@@ -49,21 +53,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          count_discovery=$(grep -o 'premium_discovery\.js?v=' index.html | wc -l | tr -d ' ')
-          count_view=$(grep -o 'premium_profile_view\.js?v=' index.html | wc -l | tr -d ' ')
-          count_attach=$(grep -o 'premium_profile_view_attach\.js?v=' index.html | wc -l | tr -d ' ')
-          test "$count_discovery" = "1"
-          test "$count_view" = "1"
-          test "$count_attach" = "1"
+          test "$(grep -o 'premium_section\.js?v=' index.html | wc -l | tr -d ' ')" = "1"
+          test "$(grep -o 'premium_discovery\.js?v=' index.html | wc -l | tr -d ' ')" = "1"
+          test "$(grep -o 'premium_profile_view\.js?v=' index.html | wc -l | tr -d ' ')" = "1"
+          test "$(grep -o 'premium_profile_view_attach\.js?v=' index.html | wc -l | tr -d ' ')" = "1"
+          test "$(grep -o 'premium_profile\.js" index.html | wc -l | tr -d ' ')" = "1"
+          grep -q 'premium_section.js?v=20260913-2' index.html
           grep -q 'premium_discovery.js?v=20260913-2' index.html
           grep -q 'premium_profile_view.js?v=20260913-3' index.html
           grep -q 'premium_profile_view_attach.js?v=20260913-2' index.html
 
       - name: Commit integration
+        shell: bash
         run: |
           git config user.name 'LEOGO Automation'
           git config user.email 'actions@users.noreply.github.com'
           git add index.html
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Install cache-busted Premium profile integration'
+          git commit -m 'Deploy Premium expiry and renewal controls'
           git push
