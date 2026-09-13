@@ -21,7 +21,7 @@ jobs:
           text=p.read_text(encoding='utf-8')
           import re
           text=re.sub(r'<script src="premium_payment_bridge\.js\?v=[^"]+"></script>\s*', '', text)
-          tag='<script src="premium_payment_bridge.js?v=20260913-1"></script>'
+          tag='<script src="premium_payment_bridge.js?v=20260914-1"></script>'
           if '</body>' not in text: raise SystemExit('index.html has no closing body tag')
           text=text.replace('</body>',tag+'\n</body>',1)
           p.write_text(text,encoding='utf-8')
@@ -35,7 +35,7 @@ jobs:
           if not p.exists(): raise SystemExit('admin.html not found')
           text=p.read_text(encoding='utf-8')
           text=re.sub(r'<script src="admin_premium_payment_queue\.js\?v=[^"]+"></script>\s*', '', text)
-          tag='<script src="admin_premium_payment_queue.js?v=20260913-1"></script>'
+          tag='<script src="admin_premium_payment_queue.js?v=20260914-1"></script>'
           if '</body>' not in text: raise SystemExit('admin.html has no closing body tag')
           text=text.replace('</body>',tag+'\n</body>',1)
           p.write_text(text,encoding='utf-8')
