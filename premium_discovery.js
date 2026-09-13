@@ -14,7 +14,7 @@
   async function requestProfile(id,type){
     const run=()=>window.LEOGOPremiumAcceptance?.request?.(id,type);
     if(typeof window.LEOGOPremiumAcceptance?.request==='function'){run();return}
-    let tries=0;const wait=setInterval(()=>{tries++;if(typeof window.LEOGOPremiumAcceptance?.request==='function'){clearInterval(wait);run()}else if(tries>=30){clearInterval(wait);alert('Premium request service is still loading. Please try again.')}},100);
+    let tries=0;const wait=setInterval(()=>{tries++;if(typeof window.LEOGOPremiumAcceptance?.request==='function'){clearInterval(wait);run()}else if(tries>=30){clearInterval(wait);alert('Premium request service is still loading. Please try again')}},100);
   }
   function openPhoto(url,name){
     if(!url)return;
@@ -23,19 +23,27 @@
     v.innerHTML='<button type="button" aria-label="Close photo" style="position:absolute;right:18px;top:18px;border:0;background:#fff;color:#07152f;border-radius:50%;width:42px;height:42px;font-size:20px;font-weight:900;cursor:pointer;z-index:2">✕</button><img src="'+esc(url)+'" alt="'+esc(name||'Premium profile')+'" style="max-width:96vw;max-height:92vh;width:auto;height:auto;object-fit:contain;border-radius:14px;box-shadow:0 20px 70px rgba(0,0,0,.45);cursor:default">';
     document.body.appendChild(v);v.onclick=e=>{if(e.target===v||e.target.tagName==='BUTTON')v.remove()};
   }
+  function openViewProfile(id){
+    if(typeof window.LEOGOPremiumProfileView?.open==='function'){
+      window.LEOGOPremiumProfileView.open(id);
+      return;
+    }
+    alert('Premium profile viewer is still loading. Please try again.');
+  }
   function showCatalogue(rows){
     document.getElementById('leogoPremiumDiscoveryModal')?.remove();
     loadChatModule();
     const m=document.createElement('div');m.id='leogoPremiumDiscoveryModal';m.className='modal';
     const cards=rows.length?rows.map(p=>{
       const photo=publicPhoto(p.profile_picture_path);
-      return '<div class="panel" style="margin:0;overflow:hidden"><div style="display:flex;justify-content:center;margin:-6px -6px 14px">'+(photo?'<button type="button" class="lpPhotoBtn" data-photo="'+esc(photo)+'" data-name="'+esc(p.username||'Premium profile')+'" aria-label="View full profile photo" style="border:0;background:transparent;padding:0;cursor:zoom-in;border-radius:50%"><img src="'+esc(photo)+'" alt="'+esc(p.username||'Premium profile')+'" loading="lazy" style="width:150px;height:150px;border-radius:50%;object-fit:cover;border:3px solid #ff7a00;background:#f4f4f4;display:block"></button>':'<div style="width:150px;height:150px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#f4f4f4;font-size:48px">👤</div>')+'</div><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><h3 style="margin:0 0 5px">'+esc(p.username)+'</h3><div class="muted" style="font-size:13px">'+esc(p.age||'')+(p.sex?' • '+esc(p.sex):'')+'</div><div class="muted" style="font-size:13px;margin-top:3px">📍 '+esc(p.location||'Location not specified')+'</div></div>'+(p.verified?'<span class="pill green">✓ VERIFIED</span>':'')+'</div>'+(p.orientation?'<div style="margin-top:10px;font-size:13px"><b>Orientation:</b> '+esc(p.orientation)+'</div>':'')+(p.availability?'<div style="margin-top:6px;font-size:13px"><b>Availability:</b> '+esc(p.availability)+'</div>':'')+(p.description?'<div style="margin-top:8px;font-size:13px;line-height:1.45">'+esc(p.description)+'</div>':'')+(p.fee!==null&&p.fee!==undefined?'<div style="margin-top:10px;font-weight:900">KSh '+Number(p.fee).toLocaleString()+'</div>':'')+'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn orange lpInterestBtn" data-id="'+esc(p.id)+'">EXPRESS INTEREST</button><button class="btn light lpBookingBtn" data-id="'+esc(p.id)+'">REQUEST BOOKING</button></div></div>'
+      return '<div class="panel" style="margin:0;overflow:hidden"><div style="display:flex;justify-content:center;margin:-6px -6px 14px">'+(photo?'<button type="button" class="lpPhotoBtn" data-photo="'+esc(photo)+'" data-name="'+esc(p.username||'Premium profile')+'" aria-label="View full profile photo" style="border:0;background:transparent;padding:0;cursor:zoom-in;border-radius:50%"><img src="'+esc(photo)+'" alt="'+esc(p.username||'Premium profile')+'" loading="lazy" style="width:150px;height:150px;border-radius:50%;object-fit:cover;border:3px solid #ff7a00;background:#f4f4f4;display:block"></button>':'<div style="width:150px;height:150px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#f4f4f4;font-size:48px">👤</div>')+'</div><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><h3 style="margin:0 0 5px">'+esc(p.username)+'</h3><div class="muted" style="font-size:13px">'+esc(p.age||'')+(p.sex?' • '+esc(p.sex):'')+'</div><div class="muted" style="font-size:13px;margin-top:3px">📍 '+esc(p.location||'Location not specified')+'</div></div>'+(p.verified?'<span class="pill green">✓ VERIFIED</span>':'')+'</div>'+(p.orientation?'<div style="margin-top:10px;font-size:13px"><b>Orientation:</b> '+esc(p.orientation)+'</div>':'')+(p.availability?'<div style="margin-top:6px;font-size:13px"><b>Availability:</b> '+esc(p.availability)+'</div>':'')+(p.description?'<div style="margin-top:8px;font-size:13px;line-height:1.45">'+esc(p.description)+'</div>':'')+(p.fee!==null&&p.fee!==undefined?'<div style="margin-top:10px;font-weight:900">KSh '+Number(p.fee).toLocaleString()+'</div>':'')+'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn primary lpViewProfileBtn" data-id="'+esc(p.id)+'" type="button">👤 VIEW PROFILE</button><button class="btn orange lpInterestBtn" data-id="'+esc(p.id)+'">EXPRESS INTEREST</button><button class="btn light lpBookingBtn" data-id="'+esc(p.id)+'">REQUEST BOOKING</button></div></div>'
     }).join(''):'<div class="empty">No approved Premium profiles are available yet. Check again later.</div>';
     m.innerHTML='<div class="modal-card" style="width:min(850px,100%)"><div class="modal-head"><div><div style="font-size:11px;font-weight:900;color:#ff7a00">LEOGO PREMIUM</div><h2 style="margin:3px 0">Find Premium Members</h2></div><button class="close" id="lpdClose">✕</button></div><div class="notice success">Only approved profiles are shown. Sensitive identity information is protected.</div><div id="lpdGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">'+cards+'</div><div class="muted" style="font-size:12px;margin-top:15px">LEOGO facilitates the connection. Members decide whether to communicate or meet and remain responsible for their own safety and decisions.</div></div>';
     document.body.appendChild(m);
     document.getElementById('lpdClose').onclick=()=>m.remove();
     m.onclick=e=>{if(e.target===m)m.remove()};
     m.querySelectorAll('.lpPhotoBtn').forEach(b=>b.onclick=e=>{e.stopPropagation();openPhoto(b.dataset.photo,b.dataset.name)});
+    m.querySelectorAll('.lpViewProfileBtn').forEach(b=>b.onclick=e=>{e.stopPropagation();openViewProfile(b.dataset.id)});
     m.querySelectorAll('.lpInterestBtn').forEach(b=>b.onclick=()=>requestProfile(b.dataset.id,'interest'));
     m.querySelectorAll('.lpBookingBtn').forEach(b=>b.onclick=()=>requestProfile(b.dataset.id,'booking'));
   }
