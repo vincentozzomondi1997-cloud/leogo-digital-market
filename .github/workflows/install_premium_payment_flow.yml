@@ -1,0 +1,50 @@
+name: Install LEOGO Premium payment flow
+on:
+  push:
+    paths:
+      - premium_payment_bridge.js
+      - admin_premium_payment_queue.js
+      - .github/workflows/install_premium_payment_flow.yml
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install customer Premium payment bridge
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          if not p.exists(): raise SystemExit('index.html not found')
+          text=p.read_text(encoding='utf-8')
+          import re
+          text=re.sub(r'<script src="premium_payment_bridge\.js\?v=[^"]+"></script>\s*', '', text)
+          tag='<script src="premium_payment_bridge.js?v=20260913-1"></script>'
+          if '</body>' not in text: raise SystemExit('index.html has no closing body tag')
+          text=text.replace('</body>',tag+'\n</body>',1)
+          p.write_text(text,encoding='utf-8')
+          PY
+      - name: Install admin Premium payment approval queue
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('admin.html')
+          if not p.exists(): raise SystemExit('admin.html not found')
+          text=p.read_text(encoding='utf-8')
+          text=re.sub(r'<script src="admin_premium_payment_queue\.js\?v=[^"]+"></script>\s*', '', text)
+          tag='<script src="admin_premium_payment_queue.js?v=20260913-1"></script>'
+          if '</body>' not in text: raise SystemExit('admin.html has no closing body tag')
+          text=text.replace('</body>',tag+'\n</body>',1)
+          p.write_text(text,encoding='utf-8')
+          PY
+      - name: Commit integration
+        run: |
+          git config user.name 'LEOGO Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html admin.html
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Install Premium payment approval flow'
+          git push
