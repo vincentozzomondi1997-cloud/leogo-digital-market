@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - admin_data_tools.js
+      - admin_delete_verify.js
       - .github/workflows/install_admin_data_tools.yml
 permissions:
   contents: write
@@ -15,14 +16,16 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p=Path('admin.html')
           if p.exists():
               text=p.read_text(encoding='utf-8')
-              import re
-              tag='<script src="admin_data_tools.js?v=20260913-2"></script>'
               text=re.sub(r'<script src="admin_data_tools\\.js\\?v=[^"]+"></script>', '', text)
+              text=re.sub(r'<script src="admin_delete_verify\\.js\\?v=[^"]+"></script>', '', text)
+              tag1='<script src="admin_data_tools.js?v=20260913-3"></script>'
+              tag2='<script src="admin_delete_verify.js?v=20260913-1"></script>'
               if '</body>' in text:
-                  text=text.replace('</body>',tag+'\n</body>',1)
+                  text=text.replace('</body>',tag1+'\n'+tag2+'\n</body>',1)
                   p.write_text(text,encoding='utf-8')
           PY
       - name: Commit integration
@@ -31,5 +34,5 @@ jobs:
           git config user.email 'actions@users.noreply.github.com'
           git add admin.html
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Install admin data management tools'
+          git commit -m 'Install secure admin selected-delete verification'
           git push
