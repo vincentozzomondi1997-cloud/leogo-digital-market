@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inject stable Activity History script
+      - name: Install Activity History and active-dashboard cleanup
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -20,19 +20,16 @@ jobs:
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
           s=re.sub(r'<script[^>]+customer_activity_history\.js[^>]*></script>\s*','',s,flags=re.I)
-          tag='<script src="customer_activity_history.js?v=20260914-3"></script>\n'
-          if '</body>' in s:
-              s=s.replace('</body>',tag+'</body>',1)
-          else:
-              s+=tag
+          tag='<script src="customer_activity_history.js?v=20260914-4"></script>\n'
+          s=s.replace('</body>',tag+'</body>',1) if '</body>' in s else s+tag
           p.write_text(s,encoding='utf-8')
           PY
       - name: Verify
-        run: test "$(grep -o 'customer_activity_history.js?v=' index.html | wc -l | tr -d ' ')" = "1" && grep -q 'customer_activity_history.js?v=20260914-3' index.html
+        run: test "$(grep -o 'customer_activity_history.js?v=' index.html | wc -l | tr -d ' ')" = "1" && grep -q 'customer_activity_history.js?v=20260914-4' index.html
       - name: Commit
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html
-          git diff --cached --quiet || git commit -m 'Install stable customer Activity History'
+          git diff --cached --quiet || git commit -m 'Install active dashboard transaction cleanup'
           git push
