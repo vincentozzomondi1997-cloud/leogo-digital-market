@@ -1,0 +1,41 @@
+name: Install Seller Management Repair
+on:
+  push:
+    paths:
+      - 'admin_seller_management_fix.js'
+      - '.github/workflows/install_admin_seller_management_fix.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install seller management repair
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('admin.html')
+          s=p.read_text(encoding='utf-8')
+          import re
+          s=re.sub(r'<script\s+src=["\']admin_seller_management_fix\.js[^>]*></script>\s*', '', s, flags=re.I)
+          marker='</body>'
+          tag='<script src="admin_seller_management_fix.js?v=20260914-1"></script>\n'
+          if marker not in s:
+              raise SystemExit('admin.html body marker not found')
+          s=s.replace(marker, tag+marker, 1)
+          p.write_text(s,encoding='utf-8')
+          PY
+          test "$(grep -o 'admin_seller_management_fix.js' admin.html | wc -l)" -eq 1
+      - name: Commit repair
+        run: |
+          git config user.name "LEOGO Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add admin.html
+          if git diff --cached --quiet; then
+            echo "No changes needed"
+          else
+            git commit -m "Install Seller Management repair"
+            git push
+          fi
