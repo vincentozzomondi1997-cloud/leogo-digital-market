@@ -1,0 +1,32 @@
+name: Install Premium Owner Request Cleanup
+on:
+  push:
+    paths:
+      - '.github/workflows/install_premium_owner_request_cleanup.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cleanup script
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('premium_profile_owner_dashboard.html')
+          s=p.read_text(encoding='utf-8')
+          tag='<script src="premium_profile_owner_request_cleanup.js?v=20260914-1"></script>'
+          if 'premium_profile_owner_request_cleanup.js?v=' not in s:
+              s=s.replace('</body>', tag+'\n</body>')
+          else:
+              s=re.sub(r'premium_profile_owner_request_cleanup\.js\?v=[^"\']+', 'premium_profile_owner_request_cleanup.js?v=20260914-1', s)
+          p.write_text(s,encoding='utf-8')
+          PY
+          git config user.name "LEOGO Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add premium_profile_owner_dashboard.html
+          git commit -m "Install Premium Owner request cleanup" || true
+          git push
