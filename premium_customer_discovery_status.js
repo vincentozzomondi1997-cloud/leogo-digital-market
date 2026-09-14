@@ -6,7 +6,6 @@
   const URL='https://twpiloiiigdghwcdjbnj.supabase.co',KEY='sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX',sb=window.supabase.createClient(URL,KEY);
   const esc=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
   const normalizePhone=v=>{let p=String(v||'').replace(/[^0-9+]/g,'');if(/^0/.test(p))p='+254'+p.slice(1);return p};
-  const wait=ms=>new Promise(r=>setTimeout(r,ms));
   async function load(){
     const modal=document.getElementById('leogoPremiumDiscoveryModal');
     if(!modal||modal.dataset.customerStatusLoaded==='1')return;
@@ -22,8 +21,8 @@
     const byProfile=new Map();
     for(const r of requests){
       const key=r.premium_profile_id;
-      if(!byProfile.has(key))byProfile.set(key,r);
-      else if(r.status==='accepted'&&!byProfile.get(key).status==='accepted')byProfile.set(key,r);
+      const previous=byProfile.get(key);
+      if(!previous || r.status==='accepted' && previous.status!=='accepted')byProfile.set(key,r);
     }
     const cards=modal.querySelectorAll('[data-id]');
     for(const card of cards){
@@ -58,6 +57,6 @@
     }
   }
   const obs=new MutationObserver(()=>{if(document.getElementById('leogoPremiumDiscoveryModal'))setTimeout(load,80)});
-  function start(){obs.observe(document.body,{childList:true,subtree:true});setInterval(()=>{const m=document.getElementById('leogoPremiumDiscoveryModal');if(m){m.dataset.customerStatusLoaded='';load()}},30000)}
+  function start(){obs.observe(document.body,{childList:true,subtree:true});setInterval(()=>{const m=document.getElementById('leogoPremiumDiscoveryModal');if(m){m.dataset.customerStatusLoaded='';m.querySelectorAll('[data-id]').forEach(c=>{delete c.dataset.connectionDecorated});load()}},30000)}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
