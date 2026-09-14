@@ -1,0 +1,41 @@
+name: Connect Premium 18+ category
+on:
+  push:
+    paths:
+      - 'premium_category_bridge.js'
+      - '.github/workflows/install_premium_category_bridge.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Premium category bridge
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          tag='<script src="premium_category_bridge.js?v=20260914-1"></script>'
+          s=re.sub(r'<script[^>]+src=["\']premium_category_bridge\.js(?:\?[^"\']*)?["\'][^>]*></script>\s*','',s,flags=re.I)
+          if '</body>' not in s:
+              raise SystemExit('index.html has no closing body tag')
+          s=s.replace('</body>',tag+'\n</body>',1)
+          p.write_text(s,encoding='utf-8')
+          PY
+          test "$(grep -o 'premium_category_bridge.js' index.html | wc -l)" -eq 1
+      - name: Commit installation
+        run: |
+          git config user.name "LEOGO Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No changes needed"
+          else
+            git commit -m "Connect Premium 18+ category to Premium hub"
+            git push
+          fi
