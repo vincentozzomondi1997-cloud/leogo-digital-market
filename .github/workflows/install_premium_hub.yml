@@ -1,0 +1,49 @@
+name: Install unified Premium hub
+on:
+  push:
+    paths:
+      - 'premium_hub.js'
+      - 'premium_profiles_catalogue.js'
+      - '.github/workflows/install_premium_hub.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Connect unified Premium hub
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def install(path, tag):
+              p=Path(path); s=p.read_text(encoding='utf-8')
+              s=re.sub(r'<script[^>]+src=["\']premium_hub\.js(?:\?[^"\']*)?["\'][^>]*></script>\s*','',s,flags=re.I)
+              s=s.replace('</body>',tag+'\n</body>',1)
+              p.write_text(s,encoding='utf-8')
+
+          install('index.html','<script src="premium_hub.js?v=20260914-1"></script>')
+          install('premium.html','<script src="premium_profiles_catalogue.js?v=20260914-2"></script>\n<script src="premium_hub.js?v=20260914-1"></script>')
+
+          # Make the existing Premium discovery module expose its public open method.
+          p=Path('premium_discovery.js'); s=p.read_text(encoding='utf-8')
+          if 'window.LEOGOPremiumDiscovery={open:openDiscovery};' not in s:
+              s=s.replace('function loadAcceptanceModule()', 'window.LEOGOPremiumDiscovery={open:openDiscovery};\n  function loadAcceptanceModule()', 1)
+          p.write_text(s,encoding='utf-8')
+          PY
+          test "$(grep -o 'premium_hub.js' index.html | wc -l)" -eq 1
+          test "$(grep -o 'premium_profiles_catalogue.js' premium.html | wc -l)" -eq 1
+      - name: Commit installation
+        run: |
+          git config user.name "LEOGO Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html premium.html premium_discovery.js
+          if git diff --cached --quiet; then
+            echo "No changes needed"
+          else
+            git commit -m "Install unified Premium customer hub"
+            git push
+          fi
