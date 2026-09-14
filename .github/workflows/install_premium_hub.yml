@@ -20,14 +20,15 @@ jobs:
           from pathlib import Path
           import re
 
-          def install(path, tag):
+          def replace_script(path, filename, tag):
               p=Path(path); s=p.read_text(encoding='utf-8')
-              s=re.sub(r'<script[^>]+src=["\']premium_hub\.js(?:\?[^"\']*)?["\'][^>]*></script>\s*','',s,flags=re.I)
+              s=re.sub(r'<script[^>]+src=["\']'+filename+r'(?:\?[^"\']*)?["\'][^>]*></script>\s*','',s,flags=re.I)
               s=s.replace('</body>',tag+'\n</body>',1)
               p.write_text(s,encoding='utf-8')
 
-          install('index.html','<script src="premium_hub.js?v=20260914-2"></script>')
-          install('premium.html','<script src="premium_profiles_catalogue.js?v=20260914-3"></script>\n<script src="premium_hub.js?v=20260914-2"></script>')
+          replace_script('index.html',r'premium_hub\.js','<script src="premium_hub.js?v=20260914-2"></script>')
+          replace_script('premium.html',r'premium_profiles_catalogue\.js','<script src="premium_profiles_catalogue.js?v=20260914-3"></script>')
+          replace_script('premium.html',r'premium_hub\.js','<script src="premium_hub.js?v=20260914-2"></script>')
 
           p=Path('premium_discovery.js'); s=p.read_text(encoding='utf-8')
           if 'window.LEOGOPremiumDiscovery={open:openDiscovery};' not in s:
