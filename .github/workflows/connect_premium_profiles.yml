@@ -1,0 +1,37 @@
+name: Connect Premium Profiles
+on:
+  push:
+    paths:
+      - 'premium_profiles_catalogue.js'
+      - 'premium_profiles_link_bridge.js'
+      - '.github/workflows/connect_premium_profiles.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Premium profile catalogue
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('premium.html')
+          s=p.read_text(encoding='utf-8')
+          if 'id="premiumProfilesPanel"' not in s:
+              block='<div class="panel" id="premiumProfilesPanel"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><div class="eyebrow">APPROVED PREMIUM PROFILES</div><h2 style="margin:3px 0">Discover Premium Profiles</h2><div class="muted">Only profiles approved by LEOGO are displayed here.</div></div><button class="btn navy" type="button" onclick="window.LEOGOPremiumCatalogue?.discover()">REFRESH PROFILES</button></div><div id="premiumProfilesBox" style="margin-top:14px"><div class="notice">Loading approved Premium profiles...</div></div></div>'
+              s=s.replace('<div class="features">',block+'<div class="features">',1)
+          tag='<script src="premium_profiles_catalogue.js?v=20260914-1"></script>'
+          if tag not in s: s=s.replace('</body>',tag+'\n</body>',1)
+          p.write_text(s,encoding='utf-8')
+          i=Path('index.html')
+          x=i.read_text(encoding='utf-8')
+          itag='<script src="premium_profiles_link_bridge.js?v=20260914-1"></script>'
+          if itag not in x: x=x.replace('</body>',itag+'\n</body>',1)
+          i.write_text(x,encoding='utf-8')
+          PY
+          git config user.name "LEOGO Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add premium.html index.html
+          if git diff --cached --quiet; then echo "No changes needed"; else git commit -m "Connect approved Premium profiles"; git push; fi
