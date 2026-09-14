@@ -20,7 +20,7 @@ jobs:
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
           s=re.sub(r'<script[^>]+customer_activity_history\.js[^>]*></script>\s*','',s,flags=re.I)
-          tag='<script src="customer_activity_history.js?v=20260914-1"></script>\n'
+          tag='<script src="customer_activity_history.js?v=20260914-2"></script>\n'
           if '</body>' in s:
               s=s.replace('</body>',tag+'</body>',1)
           else:
@@ -34,5 +34,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html
-          git diff --cached --quiet || git commit -m 'Install customer Activity History'
+          git diff --cached --quiet || git commit -m 'Install stable customer Activity History'
           git push
