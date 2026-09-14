@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Inject Activity History script
+      - name: Inject stable Activity History script
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -20,7 +20,7 @@ jobs:
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
           s=re.sub(r'<script[^>]+customer_activity_history\.js[^>]*></script>\s*','',s,flags=re.I)
-          tag='<script src="customer_activity_history.js?v=20260914-2"></script>\n'
+          tag='<script src="customer_activity_history.js?v=20260914-3"></script>\n'
           if '</body>' in s:
               s=s.replace('</body>',tag+'</body>',1)
           else:
@@ -28,7 +28,7 @@ jobs:
           p.write_text(s,encoding='utf-8')
           PY
       - name: Verify
-        run: grep -n 'customer_activity_history.js' index.html
+        run: test "$(grep -o 'customer_activity_history.js?v=' index.html | wc -l | tr -d ' ')" = "1" && grep -q 'customer_activity_history.js?v=20260914-3' index.html
       - name: Commit
         run: |
           git config user.name 'github-actions[bot]'
