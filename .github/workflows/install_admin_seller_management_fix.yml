@@ -21,7 +21,7 @@ jobs:
           import re
           s=re.sub(r'<script\s+src=["\']admin_seller_management_fix\.js[^>]*></script>\s*', '', s, flags=re.I)
           marker='</body>'
-          tag='<script src="admin_seller_management_fix.js?v=20260914-2"></script>\n'
+          tag='<script src="admin_seller_management_fix.js?v=20260914-3"></script>\n'
           if marker not in s:
               raise SystemExit('admin.html body marker not found')
           s=s.replace(marker, tag+marker, 1)
@@ -36,6 +36,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes needed"
           else
-            git commit -m "Refresh Seller Management repair"
+            git commit -m "Refresh Seller Management cache version"
             git push
           fi
