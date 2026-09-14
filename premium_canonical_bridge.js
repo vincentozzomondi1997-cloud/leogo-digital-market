@@ -9,7 +9,8 @@
   window.__leogoPremiumCanonicalBridge=true;
 
   function load(src,key){
-    if(document.querySelector('script[data-leogo-canonical="'+key+'"]'))return;
+    const filename=src.split('?')[0];
+    if(document.querySelector('script[data-leogo-canonical="'+key+'"],script[src^="'+filename+'?"],script[src="'+filename+'"]'))return;
     const s=document.createElement('script');
     s.src=src;
     s.dataset.leogoCanonical=key;
@@ -46,12 +47,12 @@
     if(listing){listing.style.display='block';listing.scrollIntoView({behavior:'smooth'});}
   }
 
-  // Override only the two old navigation helpers. Existing forms/data logic is untouched.
+  // Override only the old navigation helpers. Existing forms and data logic stay intact.
   window.goCustomerPremium=openDiscover;
   window.goPremiumMembership=openMembership;
   window.goPremiumListing=openListing;
 
-  // The canonical page owns its own buttons; keep all Premium functions on this page.
+  // Keep the canonical page's Discover and Membership buttons on this page.
   document.addEventListener('click',function(e){
     const b=e.target?.closest?.('button');
     if(!b)return;
@@ -64,7 +65,6 @@
     }
   },true);
 
-  // Reuse the existing protected Premium modules without duplicating them.
   load('premium_profiles_catalogue.js?v=20260914-4','catalogue');
   load('premium_payment_bridge.js?v=20260914-2','payment');
 })();
