@@ -1,21 +1,138 @@
-/* LEOGO CUSTOMER — stable Activity History + clean active dashboard. */
+/* LEOGO CUSTOMER — Activity History + clean active dashboard. */
 (function(){
   'use strict';
-  if(window.__leogoCustomerActivityHistoryV4)return;
-  window.__leogoCustomerActivityHistoryV4=true;
+  if(window.__leogoCustomerActivityHistoryV5)return;
+  window.__leogoCustomerActivityHistoryV5=true;
   const URL='https://twpiloiiigdghwcdjbnj.supabase.co',KEY='sb_publishable_c4iJwLdRuH85e0XuFnkSjg_mdxLN2fX',sb=window.supabase.createClient(URL,KEY);
   const $=id=>document.getElementById(id);
   const esc=v=>String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
   const money=v=>'KSh '+Number(v||0).toLocaleString('en-KE');
   const completed=s=>/\b(completed|delivered)\b/i.test(String(s||''));
-  function styles(){if($('leogoActivityHistoryStyles'))return;const s=document.createElement('style');s.id='leogoActivityHistoryStyles';s.textContent='.lah-hidden-completed{display:none!important}.lah-note{margin:14px 0;padding:12px 14px;border-radius:12px;background:#eef3fb;color:#07152f;font-size:13px}.lah-item{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px;margin-top:12px}.lah-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}.lah-meta{font-size:12px;color:#667085;margin-top:4px}.lah-status{display:inline-flex;padding:5px 9px;border-radius:999px;background:#eef3fb;color:#07152f;font-size:11px;font-weight:900}.lah-status.done{background:#dcfce7;color:#166534}.lah-status.warn{background:#fff7ed;color:#9a3412}.lah-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;margin-top:12px;font-size:13px}.lah-delete{margin-top:12px}@media(max-width:650px){.lah-grid{grid-template-columns:1fr}}';document.head.appendChild(s)}
+
+  function styles(){
+    if($('leogoActivityHistoryStyles'))return;
+    const s=document.createElement('style');
+    s.id='leogoActivityHistoryStyles';
+    s.textContent='.lah-hidden-completed{display:none!important}.lah-cleaning-dashboard #dashContent{visibility:hidden}.lah-note{margin:14px 0;padding:12px 14px;border-radius:12px;background:#eef3fb;color:#07152f;font-size:13px}.lah-item{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:16px;margin-top:12px}.lah-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}.lah-meta{font-size:12px;color:#667085;margin-top:4px}.lah-status{display:inline-flex;padding:5px 9px;border-radius:999px;background:#eef3fb;color:#07152f;font-size:11px;font-weight:900}.lah-status.done{background:#dcfce7;color:#166534}.lah-status.warn{background:#fff7ed;color:#9a3412}.lah-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;margin-top:12px;font-size:13px}.lah-delete{margin-top:12px}@media(max-width:650px){.lah-grid{grid-template-columns:1fr}}';
+    document.head.appendChild(s);
+  }
+
   async function getSession(){return (await sb.auth.getSession()).data?.session||null}
   async function hiddenSet(uid){const q=await sb.from('customer_hidden_activity').select('activity_type,activity_id').eq('user_id',uid);if(q.error)throw q.error;return new Set((q.data||[]).map(x=>x.activity_type+':'+x.activity_id))}
   function fmtDate(v){try{return new Date(v).toLocaleString('en-KE')}catch(_){return String(v||'')}}
-  async function showHistory(){const host=$('dashContent');if(!host)return;host.dataset.leogoHistory='1';const s=await getSession();if(!s){host.innerHTML='<div class="panel"><div class="notice error">Please log in to view your Activity History.</div></div>';return}host.innerHTML='<div class="panel"><h2 style="margin-top:0">🕘 Activity History</h2><div class="muted">Loading your previous transactions…</div></div>';try{const [orders,transport,hidden]=await Promise.all([sb.from('orders').select('id,status,total_amount,payment_method,payment_status,delivery_location,created_at,updated_at').eq('customer_id',s.user.id).order('created_at',{ascending:false}).limit(200),sb.from('transport_requests').select('id,status,transport_service,other_service,pickup_location,destination,price,customer_total,preferred_date,preferred_time,created_at,updated_at,status_note').eq('customer_id',s.user.id).order('created_at',{ascending:false}).limit(200),hiddenSet(s.user.id)]);if(orders.error&&transport.error)throw orders.error;const rows=[];(orders.data||[]).forEach(r=>rows.push({...r,type:'order'}));(transport.data||[]).forEach(r=>rows.push({...r,type:'transport'}));rows.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));const visible=rows.filter(r=>!hidden.has(r.type+':'+r.id));if(!visible.length){host.innerHTML='<div class="panel"><h2 style="margin-top:0">🕘 Activity History</h2><div class="lah-note">Your previous orders and transport requests will appear here.</div><div class="empty">No transaction history to display.</div></div>';return}const cards=visible.map(r=>{const done=completed(r.status),title=r.type==='order'?'🛒 Order':'🚚 Transport Request',amount=r.type==='order'?money(r.total_amount):money(r.customer_total??r.price),details=r.type==='order'?`<div><b>Delivery:</b> ${esc(r.delivery_location||'Not specified')}</div><div><b>Payment:</b> ${esc(r.payment_method||'Not specified')} · ${esc(r.payment_status||'')}</div>`:`<div><b>Route:</b> ${esc(r.pickup_location||'')} → ${esc(r.destination||'')}</div><div><b>Service:</b> ${esc(r.transport_service||r.other_service||'Transport')}</div>${r.preferred_date?`<div><b>Scheduled:</b> ${esc(r.preferred_date)}${r.preferred_time?' · '+esc(r.preferred_time):''}</div>`:''}`;return `<div class="lah-item"><div class="lah-head"><div><b>${title}</b><div class="lah-meta">${esc(r.id.slice(0,8))} · ${esc(fmtDate(r.created_at))}</div></div><span class="lah-status ${done?'done':'warn'}">${esc(r.status||'Unknown')}</span></div><div class="lah-grid"><div><b>Amount:</b> ${esc(amount)}</div>${details}</div>${r.status_note?`<div class="lah-meta" style="margin-top:10px"><b>Latest update:</b> ${esc(r.status_note)}</div>`:''}${done?`<button class="btn danger lah-delete" type="button" data-type="${r.type}" data-id="${esc(r.id)}">🗑️ REMOVE FROM HISTORY</button>`:''}</div>`}).join('');host.innerHTML=`<div class="panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">🕘 Activity History</h2><div class="muted">Your previous orders and transport requests.</div></div><button id="lahRefresh" class="btn light" type="button">REFRESH</button></div><div class="lah-note">Completed transactions are hidden from the main Dashboard. Removing an item here only hides it from <b>your history</b>; LEOGO keeps the operational record.</div>${cards}</div>`;$('lahRefresh')?.addEventListener('click',showHistory);host.querySelectorAll('.lah-delete').forEach(btn=>btn.addEventListener('click',async()=>{if(!confirm('Remove this completed transaction from your Activity History?'))return;btn.disabled=true;btn.textContent='REMOVING…';const q=await sb.from('customer_hidden_activity').insert({user_id:s.user.id,activity_type:btn.dataset.type,activity_id:btn.dataset.id});if(q.error){alert(q.error.message);btn.disabled=false;btn.textContent='🗑️ REMOVE FROM HISTORY';return}await showHistory()}));}catch(e){host.innerHTML='<div class="panel"><h2 style="margin-top:0">🕘 Activity History</h2><div class="notice error">Could not load Activity History: '+esc(e.message||String(e))+'</div></div>'}}
-  function hideCompletedItems(){const host=$('dashContent');if(!host||host.dataset.leogoHistory==='1')return;const marked=new Set();host.querySelectorAll('.pill,.status,.badge,[class*="status"],[class*="badge"]').forEach(b=>{if(!completed(b.textContent))return;let el=b;for(let i=0;i<6&&el.parentElement;i++){el=el.parentElement;const t=String(el.textContent||'').replace(/\s+/g,' ').trim();if(/(?:Order\s*#|Request\s*#)/i.test(t)&&t.length<1800){marked.add(el);break}}});host.querySelectorAll('*').forEach(el=>{if(marked.has(el))return;const t=String(el.textContent||'').replace(/\s+/g,' ').trim();if(!/(?:Order\s*#|Request\s*#)/i.test(t)||t.length<40||t.length>1800)return;if(!/(?:\bcompleted\b|\bdelivered\b)/i.test(t))return;const hasChild=el.querySelector('.pill,.status,.badge,[class*="status"],[class*="badge"]');if(hasChild)marked.add(el)});marked.forEach(el=>el.classList.add('lah-hidden-completed'))}
-  function installButton(){const side=$('sideNav');if(!side)return false;let b=$('leogoActivityHistoryBtn');if(!b){b=document.createElement('button');b.id='leogoActivityHistoryBtn';b.type='button';b.textContent='🕘 Activity History';b.title='View previous transactions';b.addEventListener('click',async()=>{side.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');await showHistory()});const logout=[...side.querySelectorAll('button')].find(x=>/logout/i.test(x.textContent||''));if(logout)logout.insertAdjacentElement('beforebegin',b);else side.appendChild(b)}return true}
-  function hookDashboard(){if(typeof window.showCustomerDashboard!=='function'||window.showCustomerDashboard.__lahWrapped)return false;const original=window.showCustomerDashboard;const wrapped=function(){const result=original.apply(this,arguments);hideCompletedItems();installButton();return result};wrapped.__lahWrapped=true;window.showCustomerDashboard=wrapped;return true}
-  function start(){styles();if(hookDashboard())return;let tries=0;const timer=setInterval(()=>{if(hookDashboard()||++tries>=20)clearInterval(timer)},100)}
+
+  async function showHistory(){
+    const host=$('dashContent');if(!host)return;
+    host.dataset.leogoHistory='1';
+    const s=await getSession();
+    if(!s){host.innerHTML='<div class="panel"><div class="notice error">Please log in to view your Activity History.</div></div>';return}
+    host.innerHTML='<div class="panel"><h2 style="margin-top:0">🕘 Activity History</h2><div class="muted">Loading your previous transactions…</div></div>';
+    try{
+      const [orders,transport,hidden]=await Promise.all([
+        sb.from('orders').select('id,status,total_amount,payment_method,payment_status,delivery_location,created_at,updated_at').eq('customer_id',s.user.id).order('created_at',{ascending:false}).limit(200),
+        sb.from('transport_requests').select('id,status,transport_service,other_service,pickup_location,destination,price,customer_total,preferred_date,preferred_time,created_at,updated_at,status_note').eq('customer_id',s.user.id).order('created_at',{ascending:false}).limit(200),
+        hiddenSet(s.user.id)
+      ]);
+      if(orders.error&&transport.error)throw orders.error;
+      const rows=[];
+      (orders.data||[]).forEach(r=>rows.push({...r,type:'order'}));
+      (transport.data||[]).forEach(r=>rows.push({...r,type:'transport'}));
+      rows.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));
+      const visible=rows.filter(r=>!hidden.has(r.type+':'+r.id));
+      if(!visible.length){host.innerHTML='<div class="panel"><h2 style="margin-top:0">🕘 Activity History</h2><div class="lah-note">Completed and previous transactions are kept here after leaving the main dashboard.</div><div class="empty">No transaction history to display.</div></div>';return}
+      const cards=visible.map(r=>{
+        const done=completed(r.status),title=r.type==='order'?'🛒 Order':'🚚 Transport Request',amount=r.type==='order'?money(r.total_amount):money(r.customer_total??r.price);
+        const details=r.type==='order'?`<div><b>Delivery:</b> ${esc(r.delivery_location||'Not specified')}</div><div><b>Payment:</b> ${esc(r.payment_method||'Not specified')} · ${esc(r.payment_status||'')}</div>`:`<div><b>Route:</b> ${esc(r.pickup_location||'')} → ${esc(r.destination||'')}</div><div><b>Service:</b> ${esc(r.transport_service||r.other_service||'Transport')}</div>${r.preferred_date?`<div><b>Scheduled:</b> ${esc(r.preferred_date)}${r.preferred_time?' · '+esc(r.preferred_time):''}</div>`:''}`;
+        return `<div class="lah-item"><div class="lah-head"><div><b>${title}</b><div class="lah-meta">${esc(r.id.slice(0,8))} · ${esc(fmtDate(r.created_at))}</div></div><span class="lah-status ${done?'done':'warn'}">${esc(r.status||'Unknown')}</span></div><div class="lah-grid"><div><b>Amount:</b> ${esc(amount)}</div>${details}</div>${r.status_note?`<div class="lah-meta" style="margin-top:10px"><b>Latest update:</b> ${esc(r.status_note)}</div>`:''}${done?`<button class="btn danger lah-delete" type="button" data-type="${r.type}" data-id="${esc(r.id)}">🗑️ REMOVE FROM HISTORY</button>`:''}</div>`;
+      }).join('');
+      host.innerHTML=`<div class="panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><div><h2 style="margin:0">🕘 Activity History</h2><div class="muted">Your previous orders and transport requests.</div></div><button id="lahRefresh" class="btn light" type="button">REFRESH</button></div><div class="lah-note">Completed transactions are kept in Activity History and are not shown on the active Customer Dashboard. Removing an item here only hides it from <b>your history</b>; LEOGO keeps the operational record.</div>${cards}</div>`;
+      $('lahRefresh')?.addEventListener('click',showHistory);
+      host.querySelectorAll('.lah-delete').forEach(btn=>btn.addEventListener('click',async()=>{if(!confirm('Remove this completed transaction from your Activity History?'))return;btn.disabled=true;btn.textContent='REMOVING…';const q=await sb.from('customer_hidden_activity').insert({user_id:s.user.id,activity_type:btn.dataset.type,activity_id:btn.dataset.id});if(q.error){alert(q.error.message);btn.disabled=false;btn.textContent='🗑️ REMOVE FROM HISTORY';return}await showHistory()}));
+    }catch(e){host.innerHTML='<div class="panel"><h2 style="margin-top:0">🕘 Activity History</h2><div class="notice error">Could not load Activity History: '+esc(e.message||String(e))+'</div></div>'}
+  }
+
+  function findCompletedCards(host){
+    const marked=new Set();
+    const candidates=host.querySelectorAll('*');
+    candidates.forEach(node=>{
+      const own=String(node.textContent||'').replace(/\s+/g,' ').trim();
+      if(!/(?:Order\s*#|Request\s*#)/i.test(own))return;
+      let el=node;
+      for(let depth=0;depth<9&&el&&el.parentElement;depth++,el=el.parentElement){
+        const text=String(el.textContent||'').replace(/\s+/g,' ').trim();
+        if(text.length<60||text.length>2500)continue;
+        if(!/(?:Order\s*#|Request\s*#)/i.test(text))continue;
+        if(!/(?:\bcompleted\b|\bdelivered\b)/i.test(text))continue;
+        marked.add(el);
+        break;
+      }
+    });
+    // Prefer the smallest matching transaction element if nested matches were found.
+    marked.forEach(el=>{
+      let child=el.querySelector('.lah-hidden-completed');
+      if(child)return;
+      el.classList.add('lah-hidden-completed');
+    });
+    return marked.size;
+  }
+
+  function finishDashboardClean(host){
+    if(!host||host.dataset.leogoHistory==='1')return;
+    findCompletedCards(host);
+    host.classList.remove('lah-cleaning-dashboard');
+  }
+
+  function beginDashboardClean(){
+    const host=$('dashContent');
+    if(!host)return;
+    host.dataset.leogoHistory='';
+    host.classList.add('lah-cleaning-dashboard');
+    // The main dashboard renderer may be synchronous or asynchronous. Keep the
+    // dashboard hidden while it paints, then remove completed transaction cards
+    // before revealing it. This prevents the old completed cards from flashing.
+    let tries=0;
+    const timer=setInterval(()=>{
+      if(!document.body.contains(host)){clearInterval(timer);return}
+      const text=String(host.textContent||'');
+      const ready=/(?:Order\s*#|Request\s*#)/i.test(text);
+      if(ready||++tries>=30){clearInterval(timer);finishDashboardClean(host)}
+    },50);
+  }
+
+  function installButton(){
+    const side=$('sideNav');if(!side)return false;
+    let b=$('leogoActivityHistoryBtn');
+    if(!b){
+      b=document.createElement('button');b.id='leogoActivityHistoryBtn';b.type='button';b.textContent='🕘 Activity History';b.title='View previous transactions';
+      b.addEventListener('click',async()=>{side.querySelectorAll('button').forEach(x=>x.classList.remove('active'));b.classList.add('active');await showHistory()});
+      const logout=[...side.querySelectorAll('button')].find(x=>/logout/i.test(x.textContent||''));
+      if(logout)logout.insertAdjacentElement('beforebegin',b);else side.appendChild(b);
+    }
+    return true;
+  }
+
+  function hookDashboard(){
+    if(typeof window.showCustomerDashboard!=='function'||window.showCustomerDashboard.__lahWrapped)return false;
+    const original=window.showCustomerDashboard;
+    const wrapped=function(){
+      beginDashboardClean();
+      const result=original.apply(this,arguments);
+      installButton();
+      // Catch renderers that return before their async DOM work finishes.
+      setTimeout(()=>finishDashboardClean($('dashContent')),350);
+      setTimeout(()=>finishDashboardClean($('dashContent')),1000);
+      return result;
+    };
+    wrapped.__lahWrapped=true;
+    window.showCustomerDashboard=wrapped;
+    return true;
+  }
+
+  function start(){
+    styles();
+    if(hookDashboard())return;
+    let tries=0;
+    const timer=setInterval(()=>{if(hookDashboard()||++tries>=30)clearInterval(timer)},100);
+  }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
