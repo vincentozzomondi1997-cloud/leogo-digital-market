@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install customer connection status
+      - name: Install stable customer connection status
         shell: bash
         run: |
           set -euo pipefail
@@ -21,7 +21,7 @@ jobs:
           p=Path('index.html')
           text=p.read_text(encoding='utf-8')
           text=re.sub(r'\s*<script\s+src="premium_customer_connection_status\.js(?:\?v=[^"]+)?"\s*></script>','',text)
-          tag='<script src="premium_customer_connection_status.js?v=20260914-2"></script>'
+          tag='<script src="premium_customer_connection_status.js?v=20260914-3"></script>'
           if '</body>' not in text:
               raise SystemExit('index.html has no closing body tag')
           text=text.replace('</body>',tag+'\n</body>',1)
@@ -29,7 +29,7 @@ jobs:
           PY
       - name: Verify
         shell: bash
-        run: test "$(grep -o 'premium_customer_connection_status.js?v=' index.html | wc -l | tr -d ' ')" = "1" && grep -q 'premium_customer_connection_status.js?v=20260914-2' index.html
+        run: test "$(grep -o 'premium_customer_connection_status.js?v=' index.html | wc -l | tr -d ' ')" = "1" && grep -q 'premium_customer_connection_status.js?v=20260914-3' index.html
       - name: Commit integration
         shell: bash
         run: |
