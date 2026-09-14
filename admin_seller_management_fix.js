@@ -78,7 +78,7 @@
           +'<div><b>DESCRIPTION</b>'+esc(s.description||'No business description provided.')+'</div>'
           +'</div>'
           +'<div class="actions" style="margin-top:12px">'
-          +'<button class="blue" onclick="window.__leogoViewSellerDetails(decodeURIComponent(\''+encoded+'\'))">VIEW SELLER DETAILS</button>'
+          +'<button class="blue" onclick="window.__leogoViewSellerDetails(\''+encoded+'\')">VIEW SELLER DETAILS</button>'
           +(norm(status)==='pending'||norm(verification)==='pending'?'<button class="approve" onclick="window.__leogoReviewSeller(\''+esc(s.seller_id)+'\',\'approve\',this)">✓ APPROVE SELLER</button>':'')
           +(norm(status)!=='rejected'&&norm(status)!=='suspended'?'<button class="danger" onclick="window.__leogoReviewSeller(\''+esc(s.seller_id)+'\',\'reject\',this)">REJECT</button>':'')
           +(norm(status)==='active'?'<button class="danger" onclick="window.__leogoReviewSeller(\''+esc(s.seller_id)+'\',\'suspend\',this)">SUSPEND</button>':'')
