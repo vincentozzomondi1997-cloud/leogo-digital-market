@@ -8,10 +8,6 @@
   window.__leogoPremiumCategoryBridgeInstalled=true;
 
   function openPremium(){
-    if(window.LEOGOPremiumHub && typeof window.LEOGOPremiumHub.open==='function'){
-      window.LEOGOPremiumHub.open();
-      return;
-    }
     window.location.href='premium.html';
   }
 

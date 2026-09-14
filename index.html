@@ -332,6 +332,7 @@ function renderProducts(list){
   $("productGrid").innerHTML=list.length?list.map(productCard).join(""):`<div class="empty" style="grid-column:1/-1">No matching listings yet.</div>`;
 }
 function filterCategory(c){
+  if(c==="LEOGO Premium 18+"){window.location.href="premium.html";return;}
   // Category cards now open a dedicated category list while keeping the existing design intact.
   $("storefront").style.display="none";
   $("categoryView").classList.remove("hidden");
@@ -764,15 +765,7 @@ function closeModal(){$("modalRoot").innerHTML=""}
 
 
 function openPremium(){
-  openModal(`<div class="modal-head"><div><div style="font-size:12px;font-weight:900;color:var(--orange)">VERIFIED ADULTS ONLY</div><h2 style="margin:2px 0 0">LEOGO PREMIUM 18+</h2></div><button class="close" onclick="closeModal()">✕</button></div>
-  <div class="notice">LEOGO Premium is a separate adult dating and matchmaking service for verified adults. You must be 18+ and pass the required verification before restricted features are available.</div>
-  <div class="grid" style="grid-template-columns:1fr 1fr;gap:10px">
-    <button class="panel" style="text-align:left;border:1px solid var(--line);cursor:pointer" onclick="premiumAction('profiles')"><h3>🔎 Discover Profiles</h3><p class="muted">Browse approved adult profiles.</p></button>
-    <button class="panel" style="text-align:left;border:1px solid var(--line);cursor:pointer" onclick="premiumAction('membership')"><h3>⭐ Membership</h3><p class="muted">View premium access plans.</p></button>
-    <button class="panel" style="text-align:left;border:1px solid var(--line);cursor:pointer" onclick="premiumAction('provider')"><h3>👤 Premium Provider</h3><p class="muted">Apply for an approved profile.</p></button>
-    <button class="panel" style="text-align:left;border:1px solid var(--line);cursor:pointer" onclick="premiumAction('verification')"><h3>🔐 Verification</h3><p class="muted">Start/see verification requirements.</p></button>
-  </div>
-  <p class="muted" style="font-size:12px;margin-top:15px">Safety rule: LEOGO does not facilitate prostitution, sexual services or payment for sexual acts.</p>`);
+  window.location.href="premium.html";
 }
 async function premiumAction(action){
   if(!session){closeModal();openAuth("register");toast("Create a LEOGO account first.");return}
