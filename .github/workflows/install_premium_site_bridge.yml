@@ -1,0 +1,35 @@
+name: Install Premium Site Bridge
+on:
+  push:
+    paths:
+      - 'premium_site_bridge.js'
+      - '.github/workflows/install_premium_site_bridge.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Premium bridge
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          s=re.sub(r'<script\s+src=["\']premium_site_bridge\.js[^>]*></script>\s*','',s,flags=re.I)
+          marker='</body>'
+          tag='<script src="premium_site_bridge.js?v=20260914-1"></script>\n'
+          if marker not in s: raise SystemExit('index.html body marker not found')
+          s=s.replace(marker,tag+marker,1)
+          p.write_text(s,encoding='utf-8')
+          PY
+          test "$(grep -o 'premium_site_bridge.js' index.html | wc -l)" -eq 1
+      - name: Commit installation
+        run: |
+          git config user.name "LEOGO Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then echo "No changes needed"; else git commit -m "Connect website Premium links"; git push; fi
