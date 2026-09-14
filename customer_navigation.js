@@ -55,12 +55,16 @@
   function isServices(t){return /\bservices?\b/.test(t) || /service providers?/.test(t);}
   function isTransport(t){return /\btransport\b/.test(t) || /transport requests?/.test(t);}
 
+  // Premium 18+ now has one canonical destination. The old in-page Premium
+  // modal is bypassed so customer navigation always opens premium.html.
   function openPremiumSafe(){
-    if(typeof window.openPremium==='function'){window.openPremium();return true;}
-    const premium=document.querySelector('[data-page*="premium"],#premiumMenu,#premium18');
-    if(premium){premium.click();return true;}
-    return false;
+    window.location.href='premium.html';
+    return true;
   }
+
+  // Keep every existing inline openPremium() call on the site pointed at the
+  // same canonical Premium 18+ page instead of the legacy modal.
+  window.openPremium=openPremiumSafe;
 
   function openDashboardMenu(labelRegex){
     const buttons=Array.from(document.querySelectorAll('#sideNav button, .side button'));
