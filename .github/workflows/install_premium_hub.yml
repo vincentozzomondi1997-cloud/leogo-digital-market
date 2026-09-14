@@ -4,6 +4,7 @@ on:
     paths:
       - 'premium_hub.js'
       - 'premium_profiles_catalogue.js'
+      - 'premium_discovery.js'
       - '.github/workflows/install_premium_hub.yml'
   workflow_dispatch:
 permissions:
@@ -25,13 +26,16 @@ jobs:
               s=s.replace('</body>',tag+'\n</body>',1)
               p.write_text(s,encoding='utf-8')
 
-          install('index.html','<script src="premium_hub.js?v=20260914-1"></script>')
-          install('premium.html','<script src="premium_profiles_catalogue.js?v=20260914-2"></script>\n<script src="premium_hub.js?v=20260914-1"></script>')
+          install('index.html','<script src="premium_hub.js?v=20260914-2"></script>')
+          install('premium.html','<script src="premium_profiles_catalogue.js?v=20260914-3"></script>\n<script src="premium_hub.js?v=20260914-2"></script>')
 
-          # Make the existing Premium discovery module expose its public open method.
           p=Path('premium_discovery.js'); s=p.read_text(encoding='utf-8')
           if 'window.LEOGOPremiumDiscovery={open:openDiscovery};' not in s:
               s=s.replace('function loadAcceptanceModule()', 'window.LEOGOPremiumDiscovery={open:openDiscovery};\n  function loadAcceptanceModule()', 1)
+          old="const q=await sb.rpc('get_premium_profiles_public');"
+          new="let q=await sb.rpc('get_premium_profile_catalogue'); if(q.error) q=await sb.rpc('get_premium_profiles_public');"
+          if old in s and new not in s:
+              s=s.replace(old,new,1)
           p.write_text(s,encoding='utf-8')
           PY
           test "$(grep -o 'premium_hub.js' index.html | wc -l)" -eq 1
@@ -44,6 +48,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes needed"
           else
-            git commit -m "Install unified Premium customer hub"
+            git commit -m "Connect all Premium customer entry points"
             git push
           fi
