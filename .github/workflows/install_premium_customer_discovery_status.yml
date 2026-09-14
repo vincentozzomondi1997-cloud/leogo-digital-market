@@ -1,0 +1,38 @@
+name: Install Premium customer discovery status
+on:
+  push:
+    paths:
+      - 'premium_customer_discovery_status.js'
+      - '.github/workflows/install_premium_customer_discovery_status.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inject customer discovery status script
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          s=re.sub(r'<script[^>]+premium_customer_discovery_status\.js[^>]*></script>\s*', '', s, flags=re.I)
+          tag='<script src="premium_customer_discovery_status.js?v=20260914-1"></script>\n'
+          if '</body>' in s:
+              s=s.replace('</body>', tag+'</body>', 1)
+          else:
+              s+=tag
+          p.write_text(s,encoding='utf-8')
+          PY
+      - name: Verify
+        run: grep -n 'premium_customer_discovery_status.js' index.html
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --quiet || git commit -m 'Install Premium customer discovery status'
+          git push
