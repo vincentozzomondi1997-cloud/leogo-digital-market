@@ -3,8 +3,8 @@
    from premium_section.js. The previous bridge incorrectly routed customers
    into the retired/incomplete premium.html flow. */
 (function(){
-  if(window.__leogoPremiumSiteBridgeV3)return;
-  window.__leogoPremiumSiteBridgeV3=true;
+  if(window.__leogoPremiumSiteBridgeV4)return;
+  window.__leogoPremiumSiteBridgeV4=true;
 
   function openWorkingPremium(){
     const open=window.LEOGOPremiumSection?.open;
@@ -17,6 +17,11 @@
       else document.getElementById('leogoPremiumOpen')?.click();
     },300);
   }
+
+  // Replace the old customer-site Premium gateway with the existing working one.
+  // This affects only customer entry points; the Premium system itself is untouched.
+  window.openPremium=openWorkingPremium;
+  window.loadPremiumCategory=openWorkingPremium;
 
   function route(e){
     // This bridge is only a storefront fallback. Never interfere with the
