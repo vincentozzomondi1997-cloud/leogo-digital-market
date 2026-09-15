@@ -1,34 +1,37 @@
 /* LEOGO PREMIUM SITE BRIDGE
-   Customer Premium entry points route to the canonical existing Premium page.
-   Premium backend, membership, payment, profile, acceptance and chat workflows
-   are not modified by this bridge.
-*/
+   Customer Premium entry points must use the EXISTING working Premium section
+   from premium_section.js. The previous bridge incorrectly routed customers
+   into the retired/incomplete premium.html flow. */
 (function(){
-  if(window.__leogoPremiumSiteBridgeV5)return;
-  window.__leogoPremiumSiteBridgeV5=true;
+  if(window.__leogoPremiumSiteBridgeV4)return;
+  window.__leogoPremiumSiteBridgeV4=true;
 
-  function openCanonicalPremium(){
-    window.location.href='premium.html';
+  function openWorkingPremium(){
+    const open=window.LEOGOPremiumSection?.open;
+    if(typeof open==='function'){open();return;}
+    const button=document.getElementById('leogoPremiumOpen');
+    if(button){button.click();return;}
+    setTimeout(()=>{
+      const retry=window.LEOGOPremiumSection?.open;
+      if(typeof retry==='function')retry();
+      else document.getElementById('leogoPremiumOpen')?.click();
+    },300);
   }
 
-  // Customer-site Premium gateways only.
-  window.openPremium=openCanonicalPremium;
-  window.loadPremiumCategory=openCanonicalPremium;
+  window.openPremium=openWorkingPremium;
+  window.loadPremiumCategory=openWorkingPremium;
 
   function route(e){
     if(location.pathname.toLowerCase().endsWith('/premium.html')||location.pathname.toLowerCase().endsWith('premium.html'))return;
     const el=e.target?.closest?.('button,a,[role="button"]');
-    if(!el)return;
-    // Do not interfere with controls inside the old modal itself. The modal is
-    // left untouched; storefront Premium entry buttons route to premium.html.
-    if(el.closest('#leogoPremiumModal'))return;
+    if(!el||el.closest('#leogoPremiumSection,#leogoPremiumModal'))return;
     const text=(el.textContent||'').replace(/\s+/g,' ').trim();
     if(!/(premium\s*(18\+|profile)|i want to be listed|enter premium)/i.test(text))return;
     if(el.dataset.leogoPremiumBridge==='1')return;
     el.dataset.leogoPremiumBridge='1';
     e.preventDefault();
     e.stopImmediatePropagation();
-    openCanonicalPremium();
+    openWorkingPremium();
   }
 
   document.addEventListener('click',route,true);
