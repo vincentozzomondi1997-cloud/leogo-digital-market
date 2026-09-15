@@ -1,0 +1,1 @@
+This file intentionally contains no application code. The payment bridge load repair workflow was added separately so the existing premium_payment_bridge.js is loaded on the customer page without modifying its implementation.
