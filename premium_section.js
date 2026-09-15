@@ -115,6 +115,10 @@
     wrap.querySelectorAll('.lpChoose').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();choosePlan(b.dataset.plan);}));
   }
 
+  /* Public gateway used by storefront/customer navigation. It always opens this
+     existing, fully working Premium section instead of routing to legacy pages. */
+  window.LEOGOPremiumSection={open:openPremium};
+
   function start(){inject();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
