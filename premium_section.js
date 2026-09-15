@@ -75,26 +75,35 @@
   }
 
   async function choosePlan(planCode){
-    const msg=document.getElementById('lpPlanMsg');
-    const buttons=[...document.querySelectorAll('.lpChoose')];
-    buttons.forEach(b=>b.disabled=true);
-    if(msg)msg.innerHTML='<div class="notice">Preparing your Premium payment...</div>';
-    try{
-      const session=(await sb.auth.getSession()).data?.session;
-      if(!session){if(msg)msg.innerHTML='<div class="notice error">Your session has expired. Please log in again.</div>';return;}
-      const state=await getMembershipState(session.user.id);
-      if(state.active){if(msg)msg.innerHTML='<div class="notice error">You already have an active Premium membership.</div>';return;}
-      if(state.pending){if(msg)msg.innerHTML='<div class="notice">You already have a pending Premium payment. Complete or resolve that payment before starting another plan.</div>';return;}
-      const q=await sb.rpc('start_premium_checkout',{p_plan_code:planCode});
-      if(q.error){console.error('LEOGO Premium checkout:',q.error);if(msg)msg.innerHTML='<div class="notice error">'+esc(q.error.message||'Unable to start Premium checkout.')+'</div>';return;}
-      const row=q.data?.[0];
-      if(!row){if(msg)msg.innerHTML='<div class="notice error">Unable to create the Premium payment request.</div>';return;}
-      if(msg)msg.innerHTML='<div class="notice success"><b>Premium plan selected.</b> '+esc(row.plan_name)+' — KSh '+Number(row.price).toLocaleString()+' payment request created.</div>';
-    }catch(e){console.error('LEOGO Premium choose plan:',e);if(msg)msg.innerHTML='<div class="notice error">Premium checkout could not be started. Please try again.</div>'}
-    finally{buttons.forEach(b=>b.disabled=false);}
+  // Hand the selected plan to the EXISTING payment bridge so the
+  // customer's M-Pesa reference form opens immediately. Do not
+  // create a second checkout here.
+  const bridge=window.LEOGOPremiumPaymentBridge;
+  if(bridge && typeof bridge.choose==='function'){
+    await bridge.choose({plan_code:planCode});
+    return;
   }
 
-  async function showPremiumArea(){
+  const msg=document.getElementById('lpPlanMsg');
+  const buttons=[...document.querySelectorAll('.lpChoose')];
+  buttons.forEach(b=>b.disabled=true);
+  if(msg)msg.innerHTML='<div class="notice">Preparing your Premium payment...</div>';
+  try{
+    const session=(await sb.auth.getSession()).data?.session;
+    if(!session){if(msg)msg.innerHTML='<div class="notice error">Your session has expired. Please log in again.</div>';return;}
+    const state=await getMembershipState(session.user.id);
+    if(state.active){if(msg)msg.innerHTML='<div class="notice error">You already have an active Premium membership.</div>';return;}
+    if(state.pending){if(msg)msg.innerHTML='<div class="notice">You already have a pending Premium payment. Complete or resolve that payment before starting another plan.</div>';return;}
+    const q=await sb.rpc('start_premium_checkout',{p_plan_code:planCode});
+    if(q.error){console.error('LEOGO Premium checkout:',q.error);if(msg)msg.innerHTML='<div class="notice error">'+esc(q.error.message||'Unable to start Premium checkout.')+'</div>';return;}
+    const row=q.data?.[0];
+    if(!row){if(msg)msg.innerHTML='<div class="notice error">Unable to create the Premium payment request.</div>';return;}
+    if(msg)msg.innerHTML='<div class="notice success"><b>Premium plan selected.</b> '+esc(row.plan_name)+' — KSh '+Number(row.price).toLocaleString()+' payment request created.</div>';
+  }catch(e){console.error('LEOGO Premium choose plan:',e);if(msg)msg.innerHTML='<div class="notice error">Premium checkout could not be started. Please try again.</div>'}
+  finally{buttons.forEach(b=>b.disabled=false);}
+}
+
+async function showPremiumArea(){
     close();
     const session=(await sb.auth.getSession()).data?.session;
     if(!session){if(typeof window.openAuth==='function')window.openAuth();return;}
