@@ -1,0 +1,38 @@
+name: Ensure existing Premium payment bridge is loaded
+on:
+  push:
+    paths:
+      - '.github/workflows/repair_premium_payment_bridge_load.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Add only the existing payment bridge script tag
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          tag='<script src="premium_payment_bridge.js?v=20260915-1"></script>'
+          if tag not in s:
+              marker='<script src="premium_section.js'
+              i=s.find(marker)
+              if i<0: raise SystemExit('premium_section.js script tag not found')
+              j=s.find('</script>',i)
+              if j<0: raise SystemExit('premium_section.js closing tag not found')
+              j+=len('</script>')
+              s=s[:j]+'\n'+tag+s[j:]
+              p.write_text(s,encoding='utf-8')
+          PY
+      - name: Verify
+        run: grep -q 'premium_payment_bridge.js?v=20260915-1' index.html
+      - name: Commit only the script-load fix
+        run: |
+          git config user.name 'LEOGO Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html
+          if git diff --cached --quiet; then echo 'No changes needed'; else git commit -m 'Load existing Premium payment bridge before choose plan'; git push; fi
