@@ -17,47 +17,52 @@ jobs:
           from pathlib import Path
           import re
 
-          # index.html: make the existing customer Premium entry function a
-          # pure gateway to the already-working canonical Premium page.
+          # Customer website only: route Premium entry buttons to the
+          # already-working Premium system in premium_section.js.
           p=Path('index.html')
           s=p.read_text(encoding='utf-8')
           old=re.search(r'function openPremium\(\)\{.*?\n\}\nasync function premiumAction',s,re.S)
           if not old:
               raise SystemExit('Could not locate the existing openPremium gateway')
-          new='''function openPremium(){\n  window.location.href="premium.html";\n}\nasync function premiumAction'''
+          new='''function openPremium(){
+  const open=window.LEOGOPremiumSection?.open;
+  if(typeof open==='function'){open();return;}
+  const button=document.getElementById('leogoPremiumOpen');
+  if(button){button.click();return;}
+  setTimeout(()=>{
+    const retry=window.LEOGOPremiumSection?.open;
+    if(typeof retry==='function')retry();
+    else document.getElementById('leogoPremiumOpen')?.click();
+  },300);
+}
+async function premiumAction'''
           s=s[:old.start()]+new+s[old.end():]
 
-          # The existing category renderer must send the Premium category to
-          # the same canonical page instead of the retired legacy category UI.
+          # Premium category card: use the exact same existing Premium gateway.
           marker='function filterCategory(c){\n'
-          guard='function filterCategory(c){\n  if(c==="LEOGO Premium 18+"){window.location.href="premium.html";return;}\n'
+          guard='function filterCategory(c){\n  if(c==="LEOGO Premium 18+"){openPremium();return;}\n'
           if marker not in s:
               raise SystemExit('Could not locate filterCategory')
           if guard not in s:
               s=s.replace(marker,guard,1)
           p.write_text(s,encoding='utf-8')
-
-          # premium_category_bridge.js: keep the category integration as a
-          # simple gateway too. Do not load, replace, or alter Premium data.
-          p=Path('premium_category_bridge.js')
-          s=p.read_text(encoding='utf-8')
-          s=s.replace("""  function openPremium(){\n    if(window.LEOGOPremiumHub && typeof window.LEOGOPremiumHub.open==='function'){\n      window.LEOGOPremiumHub.open();\n      return;\n    }\n    window.location.href='premium.html';\n  }""","""  function openPremium(){\n    window.location.href='premium.html';\n  }""")
-          p.write_text(s,encoding='utf-8')
           PY
-      - name: Verify only entry-point wiring changed
+      - name: Verify only customer entry-point wiring changed
         run: |
           grep -q 'function openPremium(){' index.html
-          grep -q 'window.location.href="premium.html"' index.html
-          grep -q 'if(c==="LEOGO Premium 18+")' index.html
-          grep -q "window.location.href='premium.html'" premium_category_bridge.js
+          grep -q 'window.LEOGOPremiumSection?.open' index.html
+          grep -q 'if(c==="LEOGO Premium 18+"){openPremium();return;}' index.html
+          grep -q 'premium_section.js' index.html
+          grep -q 'premium_category_bridge.js' index.html
+          grep -q 'premium_site_bridge.js' index.html
       - name: Commit customer entry-point repair
         run: |
           git config user.name "LEOGO Automation"
           git config user.email "actions@users.noreply.github.com"
-          git add index.html premium_category_bridge.js
+          git add index.html
           if git diff --cached --quiet; then
             echo "No changes needed"
           else
-            git commit -m "Route customer Premium buttons to canonical Premium page"
+            git commit -m "Connect customer Premium buttons to existing Premium system"
             git push
           fi
