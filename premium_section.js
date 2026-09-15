@@ -58,9 +58,20 @@
   }
 
   async function getPricing(){
-    const q=await sb.rpc('get_premium_pricing');
-    if(q.error){console.error('LEOGO Premium pricing:',q.error);return []}
-    return q.data||[];
+    // Prefer the existing pricing RPC. If the RPC is temporarily unavailable or
+    // slow in the browser, read the same active pricing rows directly so the
+    // customer plan cards cannot disappear because of a transient RPC problem.
+    try{
+      const result=await Promise.race([
+        sb.rpc('get_premium_pricing'),
+        new Promise((_,reject)=>setTimeout(()=>reject(new Error('Pricing request timed out')),8000))
+      ]);
+      if(!result.error && Array.isArray(result.data) && result.data.length)return result.data;
+      if(result.error)console.warn('LEOGO Premium pricing RPC:',result.error);
+    }catch(e){console.warn('LEOGO Premium pricing RPC:',e);}
+    const fallback=await sb.from('premium_pricing').select('plan_code,plan_name,price,duration_days').eq('is_active',true).order('plan_code',{ascending:true});
+    if(fallback.error){console.error('LEOGO Premium pricing fallback:',fallback.error);return []}
+    return fallback.data||[];
   }
 
   async function getMembershipState(userId){
