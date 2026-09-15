@@ -58,15 +58,9 @@
   }
 
   async function getPricing(){
-    // Prefer the existing pricing RPC. If the RPC is temporarily unavailable or
-    // slow in the browser, read the same active pricing rows directly so the
-    // customer plan cards cannot disappear because of a transient RPC problem.
     try{
-      const result=await Promise.race([
-        sb.rpc('get_premium_pricing'),
-        new Promise((_,reject)=>setTimeout(()=>reject(new Error('Pricing request timed out')),8000))
-      ]);
-      if(!result.error && Array.isArray(result.data) && result.data.length)return result.data;
+      const result=await Promise.race([sb.rpc('get_premium_pricing'),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Pricing request timed out')),8000))]);
+      if(!result.error&&Array.isArray(result.data)&&result.data.length)return result.data;
       if(result.error)console.warn('LEOGO Premium pricing RPC:',result.error);
     }catch(e){console.warn('LEOGO Premium pricing RPC:',e);}
     const fallback=await sb.from('premium_pricing').select('plan_code,plan_name,price,duration_days').eq('is_active',true).order('plan_code',{ascending:true});
@@ -100,6 +94,10 @@
       if(q.error){console.error('LEOGO Premium checkout:',q.error);if(msg)msg.innerHTML='<div class="notice error">'+esc(q.error.message||'Unable to start Premium checkout.')+'</div>';return;}
       const row=q.data?.[0];
       if(!row){if(msg)msg.innerHTML='<div class="notice error">Unable to create the Premium payment request.</div>';return;}
+      if(window.LEOGOPremiumPaymentBridge&&typeof window.LEOGOPremiumPaymentBridge.showPayment==='function'){
+        await window.LEOGOPremiumPaymentBridge.showPayment(row,null);
+        return;
+      }
       if(msg)msg.innerHTML='<div class="notice success"><b>Premium plan selected.</b> '+esc(row.plan_name)+' — KSh '+Number(row.price).toLocaleString()+' payment request created.</div>';
     }catch(e){console.error('LEOGO Premium choose plan:',e);if(msg)msg.innerHTML='<div class="notice error">Premium checkout could not be started. Please try again.</div>'}
     finally{buttons.forEach(b=>b.disabled=false);}
@@ -126,8 +124,6 @@
     wrap.querySelectorAll('.lpChoose').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();choosePlan(b.dataset.plan);}));
   }
 
-  /* Public gateway used by storefront/customer navigation. It always opens this
-     existing, fully working Premium section instead of routing to legacy pages. */
   window.LEOGOPremiumSection={open:openPremium};
 
   function start(){inject();}
